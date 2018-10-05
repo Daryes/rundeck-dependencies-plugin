@@ -1,0 +1,59 @@
+name: dependencies
+version: 1.0.7
+rundeckPluginVersion: 1.2
+author: HAL
+date: Wed Aug 17 19:37:26 CEST 2017
+providers:
+  - name: dependencies-wait_job
+    service: WorkflowStep
+    title: "dependencies / wait / job"
+    description: "Program waiting for another job execution status"
+    plugin-type: script
+    script-interpreter: /bin/bash
+    script-file: dep_wait_job.sh
+    script-args: -project ${config.target_project} -group ${config.target_group} -job ${config.target_job} -state ${config.status_job} ${config.softlink} ${config.force_launch} ${config.optional_params}
+    config:
+      - type: String
+        name: target_project
+        title: Project
+        description: "the project name of the job to await"
+        default: "${job.project}"
+        required: true
+      - type: String
+        name: target_group
+        title: Group
+        description: "the group name of the job to await"
+        default: "${job.group}"
+        required: true
+      - type: String
+        name: target_job
+        title: Job
+        description: "the job name to await"
+        required: true
+      - type: Select
+        name: status_job
+        title: Status
+        description: "the expected ending status of the monitored job"
+        values: "success,error"
+        default: success
+        required: true
+      - type: Select
+        name: softlink
+        title: Dependency type
+        description: "Hardlink will wait until the required job is started, finished and with the expected status. Softlink will skip the dependency only if the required job isn't already running or complete (useful for jobs not always present)"
+        values: "-hardlink,-softlink"
+        default: "-hardlink"
+        required: true
+      - type: Select
+        name: force_launch
+        title: Force launch
+        description: "Force the execution when the timeout delay is reached, ignoring the execution and return state of the required job"
+        values: "-force_launch"
+        default: ""
+        required: false
+      - type: String
+        name: optional_params
+        title: Other params
+        description: "Additional parameters from this list: -bypass (ignore this step) | -maxWait <duration in seconds (default:18 hours)> |"
+        default: "${option.DEPENDENCY_EXTRA_PARAMS}"
+        required: false
