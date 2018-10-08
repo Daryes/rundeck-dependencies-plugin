@@ -1,9 +1,9 @@
 Rundeck plugin : dependencies
 ======
 
-This plugin add precise control options to Rundeck job's interaction between them
-in a global flow. 
-
+This plugin add a more precise control options to Rundeck job's interaction between them
+in a global flow.  
+Rundeck installed on a **Linux** control server is required.
 
 Internal flow
 ------
@@ -13,14 +13,14 @@ launch between multiple schedules of the same job.
 
 In this regard, the dependencies plugin works with an internal flow definition.  
 This flow will start at d+0, 14h00, and end at d+1, 13h59.  
-When looking for a job, only those started in the boundaries of the current flow
-will be analyzed, without restriction even if the day change.
+When a dependency waits for a job, only those started in the boundaries of the current flow
+will be analyzed, even if the day change.
 
 
 Installation
 ------
-The zip archive must be placed in the var/rundeck/lib/rundeck/libext subdirectory.  
-It can be directly the zip file, or a symlink to the archive.
+Place the zip archive  under the var/rundeck/lib/rundeck/libext subdirectory. Using a symlink is also possible.  
+Rundeck refresh from time to time the plugin list without requiring a restart.
 
 A token must be created from Rundeck, with at least read access on all project.  
 In rundeck GUI (as admin) => user profile => User API Tokens.  
@@ -35,24 +35,21 @@ Either in the rundeck user .profile, as 'export RD_TOKEN=...' or in /etc/rundeck
 
 Module: Wait for / Job
 ======
-This module is a workflow step.  
-It allows to handle a dependency, or link, to another job, waiting until its his execution 
-complete with a specific status.
+This module is in the workflow category when adding a step.  
+It'll give the possible to set a dependency, or link, to another job, waiting until his 
+execution is complete with a specific status.
 
 
 Available modes 
 ------
-* blocking mode : wait for a job until it is finished, even if it will be started 
-much after, or if the end of the internal flow is reached.  
-This mode allow to 
-launch multiples jobs in parallel, the dependencies will take care of the order.
+* blocking mode (hardlink): wait for a job until it is finished, even if started much later.  
+This allows to launch multiple jobs in parallel, the dependencies taking take care of the order.
 
-* non-blocking mode: in the case of a conditional job that isn't executed each 
-time, the module will wait only if the job has been started previously and is still 
-running, or already finished in the current flow.  
-Otherwise, skip the dependency step without error.  
-A job with a step using this mode might require another step in blocking mode, 
-to ensure the global order is respected.
+* non-blocking mode (softlink): the module will wait only if the job has been started previously 
+and is still running, or already finished in the current flow.  
+Otherwise, skip the dependency step without error.
+This use is specific for handling the presence of conditional jobs that arent executed each time.  
+to ensure the global order is respected in the flow, a job might require another waiting step in blocking mode.  
 
 In both modes, the module will keep waiting if the target job is finished but 
 without the required status (success or error)
@@ -60,20 +57,20 @@ without the required status (success or error)
 
 Mandatory job variable
 ======
-Any job using this module requires an additional option (variable):  
+Any job using this module will requirs an additional option (variable):  
 text type, empty, with the following name : "DEPENDENCY_EXTRA_PARAMS".  
-It is provided by the module as a default value, but can be changed.
+The module already provides it as a default value.  
 
-This variable is provided to bypass a blocking dependency, in case of a manual 
-intervention, as skipping a step is not possible.  
-In such situation, kill the waiting job, and relaunch it manually using " -bypass " as 
-an extra param. The dependency step will then exit immediatly.
+The variable is provided to bypass a blocking dependency, in case of a manual 
+action, as skipping a step is not possible.  
+In such situation, the waiting job must be stopped, and relaunched manually 
+using " -bypass " as an extra param. The dependency step will then exit immediatly.
 
 
 Customization
 ------
 The flow time limit can be changed globaly, using the following environment variables 
-in the rundeck etc or user profile (a restart is required) :
+in the rundeck profile file or the user profile (a restart is required) :
 - RD_FLOW_DAILY_START="hh:mm:ss"
 - RD_FLOW_DAILY_STOP="hh:mm:ss"
 
