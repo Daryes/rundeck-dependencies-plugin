@@ -24,7 +24,7 @@ It can be directly the zip file, or a symlink to the archive.
 
 A token must be created from Rundeck, with at least read access on all project.  
 In rundeck GUI (as admin) => user profile => User API Tokens.  
-- Let the role set to blank
+- Leave the role set to blank.
 - If you don't want to handle the date limitation, add / change the following option
 in rundeck-config.properties : "rundeck.api.tokens.duration.max=0" 
 
@@ -45,7 +45,7 @@ Available modes
 * blocking mode : wait for a job until it is finished, even if it will be started 
 much after, or if the end of the internal flow is reached.  
 This mode allows to launch multiples jobs at the same time, the order being handled 
-by the dependencies.
+by the dependencies.  
 
 * non-blocking mode: in the case of a conditional job that isn't executed each 
 time, the module will wait only if the job has been started previously and is still 
@@ -60,18 +60,19 @@ without the required status (success or error)
 
 Skipping a dependency
 ------
-When using this module, 2 ways are usable to skip a dependency :
+When using this module, 2 ways are usable to skip a dependency :  
 
-- using an additionnal option/variable in the job declaration :
+* using an additionnal option/variable in the job declaration :  
 DEPENDENCY_EXTRA_PARAMS : text type, empty, optionnal.
 Filling the option with the value " -bypass " at launch will set the step to exit 
 immediatly, allowing the next step to run.
 Note : the  module will use this name as a default value, but can be changed in the 
 step options.
-- at the execution time, the step will show in the log output an information line to  
-skip the current waiting loop, starting with "touch /tmp/..."
-This command will create an empty file the job is looking for to exit immediatly, 
-allowing the next step to run.
+
+* at the execution time, the step will show in the log output an information line to 
+skip the current waiting loop, starting with "touch /tmp/..."  
+This command will create an empty file the job is looking for, which is required to 
+exit immediatly without error, allowing the next step to run.  
 
 The file method can only be used when the dependency step is running, as the filename
 is unique to the execution. On the opposite, the variable used at launch works better 
