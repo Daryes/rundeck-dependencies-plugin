@@ -6,19 +6,6 @@
 # aide integree
 # -------------------------------------------------------------------------------------------
 # 2017/07/09    AHZ creation
-# 2017/08/16    AHZ commentaires + corrections sur traitement de la ligne de commande
-# 2017/08/26    AHZ MaJ rdJob_GetLastExecValue : prise en compte fix rd-cli avec gestion correcte de la date au format iso-8601 
-#                   correction de -time_end, sleep passe a 60s, ajout de nice
-# 2017/09/09    AHZ wait_timeout a 16h, ajout gestion variable DEPENDENCY_IGNORE et parametre
-# 2017/09/17    AHZ ajout affichage du PID du script
-# 2017/12/10    AHZ utilisation de l'API au lieu de rd-cli, variables RD_JOB_* renommées en TARGET_JOB_*
-#                   ajout d'un message pour chaque heure d'attente
-# 2018/01/06    AHZ ajout de variable API_VERSION dans les appels curl pour faciliter la recherche
-# 2018/05/05    AHZ trim autour des valeurs des parametres project, group et job name. Test presence de / en fin de RD_JOB_SERVERURL.
-#                   correction gestion de -softlink sur une exection recente.
-#                   expiration de l'attente sur depassement heure de fin du plan
-# 2018/08/21    AHZ affichage detaille des erreurs API, ajout possibilite de modifier FLOW_DAILY_START et _END via args ou variable d'environement
-#                   verification presence de variables, MaJ usageSyntax, repositionnement du plan a 15h 
 
 
 # variables externes
@@ -27,6 +14,7 @@
 # DEPENDENCY_IGNORE=<optional, empty or "anything non blank" >
 # RD_FLOW_DAILY_START=<optional or "hh:mm:ss" as global, can also be set as a cmd line arg>
 # RD_FLOW_DAILY_END=<optional or "hh:mm:ss" as global, can also be set as a cmd line arg >
+# RD_TMP_DIR=<optional or path to the Rundeck tmp dir>
 
 
 # default values
@@ -34,6 +22,7 @@ TARGET_PROJECT_NAME=""
 TARGET_GROUP_NAME=""
 TARGET_JOB_NAME=""
 TARGET_JOB_ID=""
+TARGET_JOB_SKIPFILE=""
 TARGET_JOB_EXPECTED_STATUS=success
 TARGET_JOB_MANDATORY=1
 TARGET_JOB_DEP_RESOLVED=0
@@ -53,11 +42,14 @@ TIME_FLOW_DAILY_END=-1
 REF_FLOW_DAILY_START="${RD_FLOW_DAILY_START:-15:00:00}"
 REF_FLOW_DAILY_END="${RD_FLOW_DAILY_END:-14:59:59}"
 
-VAL_OK=";ok;success;succeeded;"
-VAL_KO=";ko;error;failed;aborted;timedout;timeout"
+REF_TMP_DIR=${RD_TMP_DIR:-/tmp/rundeck}
 
 CURL_API_ROOT="${RD_JOB_SERVERURL%/}/api"
 CURL_API_CMD="curl --silent --get --data-urlencode authtoken=${RD_TOKEN} ${CURL_API_ROOT}"
+
+VAL_OK=";ok;success;succeeded;"
+VAL_KO=";ko;error;failed;aborted;timedout;timeout"
+
 
 # ----------------------------------------------------------------------------
 # syntaxe d'utilisation
@@ -90,7 +82,7 @@ rdJob_GetIdFromName() {
     CURL_API_VERSION=17
     sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  )
     if [ $? -ne 0 ] || ! echo "$sData"|grep -i -q "<jobs count="; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "$sData"; exit 1; fi
-    if echo "$sData"|grep -i -q "<jobs count='0'"; then echoerr "Error: rdJob_GetIdFromName - job '$TARGET_JOB_NAME' does not exist"; exit 1; fi
+    if echo "$sData"|grep -i -q "<jobs count='0'"; then echoerr "Error: rdJob_GetIdFromName - target job wasn't found"; exit 1; fi
     if ! echo "$sData"|grep -i -q "<jobs count='1'>"; then echoerr "Error: rdJob_GetIdFromName - more than a single job was returned "; exit 1; fi
         
     # uniquement pour obtenir un message d'etat
@@ -142,18 +134,27 @@ valueRet=""
         
         -time_start)
             valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "date-started unixtime='\K.*?(?=')" )
-            #cli only: valueRet=$( date -d "$valueRet" "+%s" )
-            valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
+            if [ ! -z "$valueRet" ]; then
+                #cli only: valueRet=$( date -d "$valueRet" "+%s" )
+                valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
+            else
+                valueRet=-1
+            fi
             ;;
 
         -time_end)
             valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "date-ended unixtime='\K.*?(?=')" )
-            #cli only: valueRet=$( date -d "$valueRet" "+%s" )
-            valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
+            if [ ! -z "$valueRet" ]; then
+                #cli only: valueRet=$( date -d "$valueRet" "+%s" )
+                valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
+            else
+                valueRet=-1
+            fi
             ;;
         
         -status|-state)
             valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "<execution id=.* status='\K.*?(?=')" )
+            if [ -z "$valueRet" ]; then valueRet="unknown"; fi
             if echo "$VAL_OK"|grep -q "$valueRet"; then valueRet="success"; fi
             if echo "$VAL_KO"|grep -q "$valueRet"; then valueRet="error"; fi
             ;;
@@ -296,7 +297,7 @@ echo "----------------------------------------------"
 echo "FLOW START: $( date -d @$TIME_FLOW_DAILY_START --rfc-2822 )"
 echo "FLOW END:   $( date -d @$TIME_FLOW_DAILY_END --rfc-2822 )"
 echo "PROJECT:    $TARGET_PROJECT_NAME"
-echo "GROUP:      $TARGET_GROUP_NAME"
+echo "JOB group:  $TARGET_GROUP_NAME"
 echo "JOB name:   $TARGET_JOB_NAME"
 echo "JOB wanted state : $TARGET_JOB_EXPECTED_STATUS"
 echo "JOB dep type: $( if [ $TARGET_JOB_MANDATORY -eq 0 ]; then echo 'optional'; else echo 'required'; fi )"
@@ -314,15 +315,27 @@ sleep ${STARTUP_DELAY_SEC}s
 
 # recherche de l'id du job cible
 TARGET_JOB_ID=$( rdJob_GetIdFromName ) || exit 1
+TARGET_JOB_SKIPFILE=${REF_TMP_DIR}/deps_skip.$$.${TARGET_JOB_ID}
+
 echo "JOB ID found: $TARGET_JOB_ID"
 echo ""
 
 echo "Waiting loop started ($TARGET_WAIT_TIMEOUT sec)..."
+echo "Shell command to skip this loop : touch ${TARGET_JOB_SKIPFILE}"
+echo ""
 # traitement du job jusqu'a la fin du timeout
 nCount=0
 while [ $nCount -lt ${TARGET_WAIT_TIMEOUT} ]; do    
     
-    # l'etat d'execution du job
+    # verification du fichier skip
+    if [ ! -z "$TARGET_JOB_SKIPFILE" ] && [ -f "$TARGET_JOB_SKIPFILE" ]; then
+        echo "Skip file $TARGET_JOB_SKIPFILE present => success"
+        rm "$TARGET_JOB_SKIPFILE"   || exit 1
+        TARGET_JOB_DEP_RESOLVED=1
+        break
+    fi
+    
+    # Etat d'execution du job
     TARGET_JOB_ISRUNNING=$( rdJob_IsRunning ) || exit 1
     
     if [ "$TARGET_JOB_ISRUNNING" == "0" ]; then
@@ -379,7 +392,7 @@ while [ $nCount -lt ${TARGET_WAIT_TIMEOUT} ]; do
             fi
             
             # toujours pas de job => attente
-        fi
+        fi    
     fi
     
     nCount=$(( $nCount + $SLEEP_DURATION_SEC ))
