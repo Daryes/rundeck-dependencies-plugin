@@ -22,15 +22,20 @@ Installation
 The zip archive must be placed in the var/rundeck/lib/rundeck/libext subdirectory.  
 It can be directly the zip file, or a symlink to the archive.
 
+The curl command  must be available in the path.
+
+This command must return a message with "<message>API Version not specified</message>" :  
+  curl http(s)://<rundeck server address>/api/
+
 A token must be created from Rundeck, with at least read access on all project.  
 In rundeck GUI (as admin) => user profile => User API Tokens.  
-- Leave the role set to blank.
+- Leave the role empty.
 - If you don't want to handle the date limitation, add / change the following option
 in rundeck-config.properties : "rundeck.api.tokens.duration.max=0" 
 
 The token must be placed in the following environment variable:  
 RD_TOKEN=< API admin token >  
-Either in the rundeck user .profile  or in /etc/rundeck/profile, as 'export RD_TOKEN=...'
+In the rundeck user $HOME/.profile, as 'export RD_TOKEN=...'
 
 
 Module: Wait for / Job

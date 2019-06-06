@@ -1,11 +1,19 @@
 Change history
 ======
 
+v1.10 (2019/06/06)
+------
+
+- updated the token location when installing the plugin the first time
+- new error message when the api token wasn't found
+- updated the shell command for exiting a waiting/stuck loop to be more copy/paste friendly
+
+
 v1.9 (2019/01/02)
 ------
 
 - new optional Node Filtering option allowing the dependency to adjust when a job was launched using 'Change the Target Nodes' option.  
-  The old behavior is the 'global' value
+  Old behavior is available with the 'global' value
 - Grouped options  in the creation/editing UI
 - internal variables cleaning
 - changelog rewrote in english

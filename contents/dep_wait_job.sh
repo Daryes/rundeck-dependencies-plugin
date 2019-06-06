@@ -62,7 +62,7 @@ VAL_KO=";ko;error;failed;aborted;timedout;timeout"
 function usageSyntax() {
     echo -e "
 syntaxe    : $(basename $0) -project '<nom projet rundeck>' -group '<groupe de jobs>' -job '<nom du job>' [-state <success | error>] 
-                            [-force_launch] [-hardlink|-softlink] [-wait <temps d'attente en sec>] [-bypass] 
+                            [-force_launch] [-hardlink|-softlink] [-wait <temps d'attente en sec>] [-skip] 
                             [-flow_daily_start hh:mm:ss] [-flow_daily_end hh:mm:ss]
                             [-node_filtering <mode>] [-nodefilter_regex <regex>]
 
@@ -71,7 +71,7 @@ syntaxe    : $(basename $0) -project '<nom projet rundeck>' -group '<groupe de j
  -hardlink : (defaut) active la dependance et attend que le job cible soit lance s'il est absent
  -softlink : active la dependance uniquement si le job cible est deja lance (en cours, ou termine ok/ko)
  -wait     : temps d'attente maximal du job cible, par defaut (sec) : $DEP_WAIT_TIMEOUT
- -bypass   : desactive la verification et sort immediatement sans erreur.
+ -skip     : desactive la verification et sort immediatement sans erreur.
  -flow_daily_start : indique l'heure de debut du plan, par defaut : $REF_FLOW_DAILY_START
  -flow_daily_end : indique l'heure de fin du plan, par defaut : $REF_FLOW_DAILY_END
  -node_filtering : valeur entre : adapt, global, regex. Reutilise la notion du noeud d'execution pour etablir la dependance. Par defaut : adapt
@@ -91,7 +91,7 @@ echoerr() { printf "%s\n" "$*" >&2; }
 # find a job GID from his project, group and job names
 rdJob_GetIdFromName() {    
     CURL_API_VERSION=17
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  )
+    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  2>&1 )
     if [ $? -ne 0 ] || ! echo "$sData"|grep -i -q "<jobs count="; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "$sData"; exit 1; fi
     if echo "$sData"|grep -i -q "<jobs count='0'"; then echoerr "Error: rdJob_GetIdFromName - target job '$TARGET_JOB_NAME' in group '$TARGET_GROUP_NAME' wasn't found"; exit 1; fi
     if ! echo "$sData"|grep -i -q "<jobs count='1'>"; then echoerr "Error: rdJob_GetIdFromName - more than a single job was returned "; exit 1; fi
@@ -106,7 +106,7 @@ rdJob_GetIdFromName() {
 # la commande liste la totalité des jobs en execution, sans filtrage possible
 rdJob_IsRunning() {
     CURL_API_VERSION=14
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/executions/running   )
+    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/executions/running 2>&1  )
     if [ $? -ne 0 ]; then echoerr "Error: rdJob_IsRunning - bad API query"; echoerr "$sData"; exit 1; fi
     
     # recherche de l'id du job cible
@@ -121,7 +121,7 @@ rdJob_IsRunning() {
 
 rdJob_GetLastExecData() {
     CURL_API_VERSION=1
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/job/${TARGET_JOB_ID}/executions --data-urlencode max=1 )    
+    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/job/${TARGET_JOB_ID}/executions --data-urlencode max=1  2>&1 )    
     if [ $? -ne 0 ]; then echoerr "Error: rdJob_GetLastExecData - bad API query"; echoerr "$sData"; exit 1; fi
 
     echo "$sData" | grep -v '^#'
@@ -201,6 +201,9 @@ echo "RUNDECK DEPENDENCIES WAIT_JOB MODULE"
 echo "Command line used : $0 $*"
 echo ""
 
+if [ -z "${RD_TOKEN}" ]; then echoerr "Error: the environment variable RD_TOKEN wasn't found, check your $HOME/.profile file"; exit 1; fi
+echo "Rundeck API Token found"
+
 # test d'acces a l'API via curl
 sTemp=$( ${CURL_API_CMD}/1/projects 2>&1)
 if [ $? -ne 0 ] || ! echo "$sTemp" | grep -i -q "projects count="; then echoerr "Error: cannot contact rundeck through the API"; echoerr "$sTemp"; exit 1; fi
@@ -258,7 +261,7 @@ while [ $# -gt 0 ]; do
             shift
             ;;
             
-        -bypass)
+        -bypass|-skip)
             DEPENDENCY_IGNORE=1
             ;;
         
@@ -369,7 +372,7 @@ echo "JOB ID found: $TARGET_JOB_ID"
 echo ""
 
 echo "Waiting loop started (for $( date -u -d @${DEP_WAIT_TIMEOUT} +'%Hh%Mm%Ss' ))..."
-echo "Shell command to skip this loop : touch ${TARGET_JOB_SKIPFILE}"
+echo "To exit this loop, run this shell command : sudo -u ${USER} touch ${TARGET_JOB_SKIPFILE}"
 echo ""
 # traitement du job jusqu'a la fin du timeout
 nCount=0
@@ -378,9 +381,13 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
     # verification du fichier skip
     if [ ! -z "$TARGET_JOB_SKIPFILE" ] && [ -f "$TARGET_JOB_SKIPFILE" ]; then
         echo "Skip file $TARGET_JOB_SKIPFILE present => success"
-        rm "$TARGET_JOB_SKIPFILE"   || exit 1
-        TARGET_JOB_DEP_RESOLVED=1
-        break
+        rm "$TARGET_JOB_SKIPFILE"
+        if [ $? -eq 0 ]; then 
+            TARGET_JOB_DEP_RESOLVED=1
+            break
+        else
+            echoerr "Error: the file $TARGET_JOB_SKIPFILE cannot be removed - continuing."
+        fi
     fi
     
     # Etat d'execution du job
