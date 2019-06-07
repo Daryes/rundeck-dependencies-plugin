@@ -25,7 +25,7 @@ It can be directly the zip file, or a symlink to the archive.
 The curl command  must be available in the path.
 
 This command must return a message with "<message>API Version not specified</message>" :  
-  curl http(s)://<rundeck server address>/api/
+  curl http(s)://rundeck_server/api/
 
 A token must be created from Rundeck, with at least read access on all project.  
 In rundeck GUI (as admin) => user profile => User API Tokens.  
