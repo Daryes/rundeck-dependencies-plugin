@@ -1,7 +1,13 @@
 Change history
 ======
 
-v1.10 (2019/06/06)
+v1.1.0 (2021/04/04)
+------
+
+- updated the minimum Rundeck API to 11
+- changed the api token to support a file based location
+
+v1.0.10 (2019/06/06)
 ------
 
 - updated the token location when installing the plugin the first time
@@ -9,7 +15,7 @@ v1.10 (2019/06/06)
 - updated the shell command for exiting a waiting/stuck loop to be more copy/paste friendly
 
 
-v1.9 (2019/01/02)
+v1.0.9 (2019/01/02)
 ------
 
 - new optional Node Filtering option allowing the dependency to adjust when a job was launched using 'Change the Target Nodes' option.  
@@ -19,7 +25,8 @@ v1.9 (2019/01/02)
 - changelog rewrote in english
 - max loop duration format changed to HH MM SS
 
-v1.8 (2019/01/02)
+
+v1.0.8 (2019/01/02)
 ------
 
 - New REF_TMP_DIR variable
@@ -28,7 +35,7 @@ v1.8 (2019/01/02)
 - Some error messages rewrote
 
 
-v1.7 (2018/08/21)
+v1.0.7 (2018/08/21)
 ------
 
 - Better visibility of API errors
@@ -38,7 +45,7 @@ v1.7 (2018/08/21)
 - Flow start time changed to 15h00
 
 
-v1.6 (2018/05/05)
+v1.0.6 (2018/05/05)
 ------
 
 - project, group and job name parameters trimmed
@@ -47,13 +54,13 @@ v1.6 (2018/05/05)
 - wait expiration when the end of flow is reached
 
 
-v1.5 (2018/01/06)
+v1.0.5 (2018/01/06)
 ------
 
 - Internal variable API_VERSION in curl calls
 
 
-v1.4 (2017/12/10)
+v1.0.4 (2017/12/10)
 ------
 
 - rewrite to switch to Rundeck API instead of rd-cli
@@ -61,7 +68,7 @@ v1.4 (2017/12/10)
 - added an information message visible after each hour when waiting
 
 
-v1.3 (2017/09/17)
+v1.0.3 (2017/09/17)
 ------
 
 - wait_timeout duration set to 16h 
@@ -69,7 +76,7 @@ v1.3 (2017/09/17)
 - script PID visible in the console output
 
 
-v1.2 (2017/09/09)
+v1.0.2 (2017/09/09)
 ------
 
 - rdJob_GetLastExecValue : using correct rd-cli with iso-8601 date format 
@@ -78,14 +85,14 @@ v1.2 (2017/09/09)
 - rd-cli commands using nice
 
 
-v1.1 (2017/08/26)
+v1.0.1 (2017/08/26)
 ------
 
 - Comments 
 - Better handling of the command line
 
 
-v1.0 (2017/07/09)
+v1.0.0 (2017/07/09)
 ------
 
 first version

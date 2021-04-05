@@ -1,5 +1,5 @@
 name: dependencies
-version: 1.0.9
+version: 1.1.0
 rundeckPluginVersion: 1.2
 author: HAL
 date: Wed Aug 17 19:37:26 CEST 2017
@@ -66,7 +66,7 @@ providers:
       - type: Select
         name: node_filtering
         title: Node filtering
-        description: "Option to manage launches when the 'Change the target nodes' option is used instead of the default setting.  \nAdapt tries to reuse the filtered node list when a job is manually launched using specific nodes (default).  \nGlobal will search for the first job with the valid status, without regard for the execution node.  \nRegex will use the provided filter in the execution node list. When used, add in 'Other Params' this extra parameter : -nodefilter_regex 'regex mask' "
+        description: "Option to manage launches when the 'Change the target nodes' option is used instead of the default setting.  \nAdapt tries to reuse the information from the filtered node list to target the same nodes (default).  \nGlobal will search for the first job with a valid status, without regard for the execution node.  \nRegex will use the provided filter in the execution node list. When used, add in 'Other Params' this extra parameter : -nodefilter_regex 'regex mask' "
         values: "adapt,global,regex"
         default: "adapt"
         required: false
