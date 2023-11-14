@@ -1,34 +1,52 @@
+---
+# ref: https://docs.rundeck.com/docs/developer/01-plugin-development.html
+# ref: https://github.com/rundeck/rundeck/tree/main/core/src/main/java/com/dtolabs/rundeck/core/plugins/metadata/
+# ref: https://github.com/rundeck/rundeck/blob/main/rundeckapp/grails-app/taglib/rundeck/PluginTagLib.groovy
 name: dependencies
-version: 1.1.0
+version: 1.2.0
 rundeckPluginVersion: 1.2
-author: HAL
+targetHostCompatibility: unix
 date: Wed Aug 17 19:37:26 CEST 2017
+author: HAL
+license: "CC-BY-4.0"
+url: https://github.com/Daryes/rundeck-dependencies-plugin
 providers:
   - name: dependencies-wait_job
     service: WorkflowStep
     title: "Dependencies / wait / job"
-    description: "Program waiting for another job execution status"
+    description: "Wait for another job execution with a given state"
     plugin-type: script
     script-interpreter: /bin/bash
     script-file: dep_wait_job.sh
-    script-args: -project ${config.target_project} -group ${config.target_group} -job ${config.target_job} -state ${config.status_job} ${config.softlink} -node_filtering ${config.node_filtering} ${config.force_launch} ${config.optional_params}
+    script-args: >-
+      -project ${config.target_project}
+      -group ${config.target_group}
+      -job ${config.target_job}
+      -state ${config.status_job}
+      ${config.softlink}
+      -node_filtering ${config.node_filtering}
+      ${config.force_launch}
+      ${config.optional_params}
+    interpreter-args-quoted: false
     config:
       - type: String
         name: target_project
         title: Project
-        description: "the project name of the job to await"
+        description: "the project name of the job to await. Default to the current project."
         default: "${job.project}"
         required: true
         renderingOptions:
           groupName: "Target job definition"
+          
       - type: String
         name: target_group
         title: Group
-        description: "the group name of the job to await"
+        description: "the group name of the job to await. Default to the same group as this job."
         default: "${job.group}"
         required: true
         renderingOptions:
           groupName: "Target job definition"
+          
       - type: String
         name: target_job
         title: Job
@@ -36,6 +54,7 @@ providers:
         required: true
         renderingOptions:
           groupName: "Target job definition"
+          
       - type: Select
         name: status_job
         title: Status
@@ -45,37 +64,146 @@ providers:
         required: true
         renderingOptions:
           groupName: "Dependency definition"
+          
       - type: Select
         name: softlink
         title: Dependency type
-        description: "Hardlink will wait until the required job is started, finished and with the expected status. Softlink will skip the dependency only if the required job isn't already running or complete (useful for jobs not always present)"
+        description: |-
+          Hardlink will wait until the required job is started, finished and with the expected status. 
+          Softlink will skip the dependency only if the required job isn't already running or complete (useful for jobs not always present).
         values: "-hardlink,-softlink"
         default: "-hardlink"
         required: true
         renderingOptions:
           groupName: "Dependency definition"
+          
       - type: Select
         name: force_launch
         title: Force launch
-        description: "Force the execution when the timeout delay is reached, ignoring the execution and return state of the required job"
+        description: |-
+          Force the execution when the timeout delay is reached, ignoring the execution and return state of the required job.  
+          The default timeout is 18h00m, use '-maxWait' in the extra parameters field to change the duration.  
         values: "-force_launch"
         default: ""
         required: false
         renderingOptions:
           groupName: "Dependency definition"
+          
       - type: Select
         name: node_filtering
         title: Node filtering
-        description: "Option to manage launches when the 'Change the target nodes' option is used instead of the default setting.  \nAdapt tries to reuse the information from the filtered node list to target the same nodes (default).  \nGlobal will search for the first job with a valid status, without regard for the execution node.  \nRegex will use the provided filter in the execution node list. When used, add in 'Other Params' this extra parameter : -nodefilter_regex 'regex mask' "
+        description: |-
+          Option to manage launches when the 'Change the target nodes' option is used in the job instead of keeping the default setting.  
+          - Adapt tries to reuse the information from the current job to search for the same execution nodes (default).  
+          - Global will search for the first targeted job with a valid status, without regard for the execution node.  
+            Use this mode when a job cannot be found with the Adapt mode.     
+          - Regex will use the provided regex filter in the execution node list.  
+            When used, add in 'Other Params' this extra parameter : -nodefilter_regex 'your regex mask'
         values: "adapt,global,regex"
         default: "adapt"
-        required: false
+        required: true
         renderingOptions:
           groupName: "Other options"
+          
       - type: String
         name: optional_params
         title: Extra parameters
-        description: "Additional parameters from this list: -skip (ignore this step) | -maxWait <duration in seconds (default:18 hours)> | -nodefilter_regex '<regex mask>'"
+        description: |-
+          Additional parameters from this list: -skip (ignore this step) | -maxWait <duration in seconds (default:18 hours)> | -nodefilter_regex '<regex mask>'.  
+          Create an additional option in this job named DEPENDENCY_EXTRA_PARAMS, string type, empty (if you didn't change the default value here)
+        default: "${option.DEPENDENCY_EXTRA_PARAMS}"
+        required: false
+        renderingOptions:
+          groupName: "Other options"
+
+
+  - name: dependencies-wait_file
+    service: WorkflowStep
+    title: "Dependencies / wait / file"
+    description: "Wait for a file in a given directory on or from the Rundeck server"
+    plugin-type: script
+    script-interpreter: /bin/bash
+    script-file: dep_wait_file.sh
+    script-args: >-
+      -host ${config.target_host}
+      -directory ${config.target_directory}
+      -file ${config.target_file}
+      ${config.flag_type}
+      -flag_ext ${config.flag_ext}
+      ${config.force_launch}
+      ${config.optional_params}
+    interpreter-args-quoted: false
+    config:
+      - type: String
+        name: target_host
+        title: Host location
+        description: |-
+          The host where the expected file will be located. Use local for the Rundeck server containing the expected file.  
+          For a remote location on a different host through ssh, use either `host` (the default Rundeck user will be applied) or `user@host` with a specific user.  
+          In both case, the rundeck user public key must be allowed on the remote host.  
+          Please note Rundeck configuration might not allow a remote connection out of the box, as this plugin is unable to make use of the integrated vault.
+        default: "local"
+        required: true
+        renderingOptions:
+          groupName: "Target file definition"
+          
+      - type: String
+        name: target_directory
+        title: Directory
+        description: "The directory containing the expected file, either a local filesystem or on a NFS mount point."
+        required: true
+        renderingOptions:
+          groupName: "Target file definition"
+          
+      - type: String
+        name: target_file
+        title: Filename
+        description: "the filename to search (* and ? are supported)"
+        required: true
+        renderingOptions:
+          groupName: "Target file definition"
+          
+      - type: Select
+        name: flag_type
+        title: Flag file 
+        description: |-
+          Companion file 'name.ext.flag' along the targeted file 'name.ext'.  
+          Usefull for large file transfer, as it will ensure the file is complete before being processed.  
+          The flag file can be empty or contains a hash (md5, sha1 to 512 are supported).  
+          If the flag is a single file for multiple transfered files, have the step targeting this single file instead.
+        values: "-noflag,-flag"
+        default: "-flag"
+        required: true
+        renderingOptions:
+          groupName: "Target file definition"
+          
+      - type: String
+        name: flag_ext
+        title: Flag extension 
+        description: "The flag filename suffix. The setting is ignored if -noflag is set."
+        default: ".flag"
+        required: false
+        renderingOptions:
+          groupName: "Target file definition"
+          
+      - type: Select
+        name: force_launch
+        title: Force launch
+        description: |-
+          Force the execution when the timeout delay is reached, even if the expected file is still missing.  
+          The default timeout is 18h00m, use '-maxWait' in the extra parameters field to change the duration.
+        values: "-force_launch"
+        default: ""
+        required: false
+        renderingOptions:
+          groupName: "Dependency definition"
+          
+      - type: String
+        name: optional_params
+        title: Extra parameters
+        description: |-
+          Additional parameters from this list: -skip (ignore this step) | -maxWait <duration in seconds (default:18 hours)> | -nodefilter_regex '<regex mask>'.  
+          Create an additional option in this job named DEPENDENCY_EXTRA_PARAMS, string type, empty (if you didn't change the default value here)
         default: "${option.DEPENDENCY_EXTRA_PARAMS}"
         required: false
         renderingOptions:

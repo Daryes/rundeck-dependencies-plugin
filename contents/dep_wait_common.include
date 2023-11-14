@@ -1,0 +1,154 @@
+#!/bin/bash
+# -------------------------------------------------------------------------------------------
+# include script for the dependency scripts
+#
+# -------------------------------------------------------------------------------------------
+# 2018/05/13	AHZ creation
+
+### Consts
+
+DEP_WAIT_TIMEOUT=$(( 18 * 60 * 60 ))
+DEP_WAIT_FORCE_EXEC=0
+DEP_NODE_MODE="adapt"
+DEP_JOB_NODE_REGEX=""
+DEP_JOB_NODE_LST=""
+
+
+STARTUP_DELAY_SEC=5
+SLEEP_DURATION_SEC=60
+TIME_CURRENT=$( date "+%s" )
+TIME_FLOW_DAILY_START=-1        # reference time for the flow => range from d+0_15h00 to d+1_14h59
+TIME_FLOW_DAILY_END=-1
+REF_FLOW_DAILY_START="${RD_FLOW_DAILY_START:-15:00:00}"
+REF_FLOW_DAILY_END="${RD_FLOW_DAILY_END:-14:59:59}"
+
+REF_TMP_DIR=${RD_TMP_DIR:-/tmp/rundeck}
+[ ! -d "${REF_TMP_DIR}" ] && REF_TMP_DIR=${RD_PLUGIN_TMPDIR}        # use the plugin tmp as a fallback
+
+
+VAL_OK=";ok;success;succeeded;"
+VAL_KO=";ko;error;failed;aborted;timedout;timeout"
+
+
+### Functions
+
+# -----------------------------------------------------------------------------
+# stderr output
+echoerr() { printf "%s\n" "$*" >&2; }
+
+
+# remove leading and ending spaces
+trim() {
+    # ref: https://stackoverflow.com/questions/369758
+    local var="$*"
+    # remove leading whitespace characters
+    var="${var#"${var%%[![:space:]]*}"}"
+    # remove trailing whitespace characters
+    var="${var%"${var##*[![:space:]]}"}"
+    echo "$var"
+}
+
+
+# Workflow start and end time calculation -------------------------------------
+
+# get the date/time limit for the current flow
+# input: n/a
+# output: date in epoch format
+timeFlow_limitToday() {
+    local dTodayLimit=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
+    echo $( date -d "${dTodayLimit}" "+%s" )
+}
+
+
+# get the current flow start time
+# input: TIME_CURRENT, REF_FLOW_DAILY_START
+# output: date in epoch format
+timeFlow_dailyStart() {
+    local dTodayLimit=$( timeFlow_limitToday )
+
+    # Current workflow is still in the day-1 => today boundary
+    if [ $TIME_CURRENT -lt ${dTodayLimit} ]; then
+        FLOW_START=$( date --date='-1 day' "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
+
+    # Current workflow was started today and will end at day+1
+    else
+        FLOW_START=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
+    fi
+    
+    echo $( date -d "${FLOW_START}" "+%s" )
+}
+
+
+# get the current flow end time
+# input: TIME_CURRENT, REF_FLOW_DAILY_END
+# output: date in epoch format
+timeFlow_dailyEnd() {
+    local dTodayLimit=$( timeFlow_limitToday )
+
+    # Current workflow is still in the day-1 => today boundary
+    if [ $TIME_CURRENT -lt ${dTodayLimit} ]; then
+        FLOW_END=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_END}" )
+
+    # Current workflow was started today and will end at day+1
+    else
+        FLOW_END=$( date --date='+1 day' "+%Y-%m-%d ${REF_FLOW_DAILY_END}" )
+    fi
+    
+    echo $( date -d "${FLOW_END}" "+%s" )
+}
+
+
+# print a message when starting the waiting loop 
+# input: DEP_WAIT_TIMEOUT, TIME_FLOW_JOB_SKIPFILE
+# output: n/a
+timeFlow_startWaitingMsg() {
+    echo "Waiting loop started (for $( date -u -d @${DEP_WAIT_TIMEOUT} +'%Hh%Mm%Ss' ) or until the flow's end) ..."
+    echo "To exit this loop, run this shell command on the Rundeck host : sudo su ${USER} -c \"touch ${TIME_FLOW_JOB_SKIPFILE}\""
+    echo ""
+}
+
+
+# print a message each hour
+# @dDurationSec    duration in sec
+timeFlow_stillWaiting() {
+    local dDurationSec=$1
+    if [ $(( ${dDurationSec} % 3600 )) -eq 0 ]; then echo "Still waiting after $(( ${dDurationSec} / 3600 )) hour"; fi
+}
+
+
+# print a message and return 1 if the flow limit is reached
+# @dFlowEnd     flow end date/time, epoch format
+# output: 1 if the limit is reached, otherwise 0
+timeFlow_limitReach() {
+    local dFlowEnd=$1
+    local nRet=0
+    
+    if [ $( date "+%s" ) -ge ${dFlowEnd} ]; then 
+        echo "Flow limit reached: $( date -d @${dFlowEnd} --iso-8601=seconds ) => timeout"
+        nRet=1
+    fi
+
+    return $nRet
+}
+
+
+# check if a skipfile is present
+# @sSkipFileFullPath     The skipfile to look for, usually "$TIME_FLOW_JOB_SKIPFILE"
+# output: 0 if the file was found and deleted, otherwise 1
+timeFlow_skipFileExists() {
+    local sSkipFileFullPath="$1"
+    local nRet=1
+
+    # search for the manually created skipfile
+    if [ ! -z "$sSkipFileFullPath" ] && [ -f "$sSkipFileFullPath" ]; then
+        echo "Skip file found : $sSkipFileFullPath => success"
+        rm "$sSkipFileFullPath"
+        if [ $? -eq 0 ]; then 
+            nRet=0
+        else
+            echoerr "Warning: the file $sSkipFileFullPath cannot be removed - continuing to wait"
+        fi
+    fi
+
+    return $nRet
+}

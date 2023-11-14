@@ -1,6 +1,21 @@
 Change history
 ======
 
+v1.2.0 (2023/11/12)
+------
+
+- dependencies-wait_file : new module able to wait for a file presence.
+- Better wording of the plugin descriptions
+- wait_job: updated the minimum API version from 11 to 14
+- wait_job: able to managed the disappearance of a running job with an optional dependency over it
+
+
+v1.1.1 (2021/05/16)
+------
+
+- rewrote the curl command
+
+
 v1.1.0 (2021/04/04)
 ------
 

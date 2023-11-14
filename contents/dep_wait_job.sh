@@ -1,6 +1,6 @@
 #!/bin/bash
 # -------------------------------------------------------------------------------------------
-# Script for waiting for another job, allowing to create a dependency between them
+# Script for waiting for another job, allowing to create a dependency between them.
 # A token with read access to the Rundeck API is required
 #
 # integrated self-help
@@ -18,45 +18,27 @@
 
 # External file
 PLUGIN_CONF_FILE=/etc/rundeck/plugin-dependencies.conf
-[ -s $PLUGIN_CONF_FILE ] && RD_TOKEN=$( cat $PLUGIN_CONF_FILE 2>&1| tr -d '\n' )
+[ -s $PLUGIN_CONF_FILE ] && export RD_TOKEN=$( cat $PLUGIN_CONF_FILE 2>&1| tr -d '\n' )
+
+
+# Include file
+PLUGIN_INCLUDE_FILE=$( dirname $0 )/dep_wait_common.include
+
 
 # default values
 TARGET_PROJECT_NAME=""
 TARGET_GROUP_NAME=""
 TARGET_JOB_NAME=""
 TARGET_JOB_ID=""
-TARGET_JOB_SKIPFILE=""
+TIME_FLOW_JOB_SKIPFILE=""
 TARGET_JOB_EXPECTED_STATUS=success
 TARGET_JOB_MANDATORY=1
 TARGET_JOB_DEP_RESOLVED=0
 TARGET_JOB_ISRUNNING=""
+TARGET_JOB_ISINFLOW=0
 TARGET_JOB_LASTEXEC_DATA=""
 TARGET_JOB_LASTEXEC_STATUS=""
 TARGET_JOB_LASTEXEC_TIME_END=""
-
-DEP_WAIT_TIMEOUT=$(( 18 * 60 * 60 ))
-DEP_WAIT_FORCE_EXEC=0
-DEP_NODE_MODE="adapt"
-DEP_JOB_NODE_REGEX=""
-DEP_JOB_NODE_LST=""
-
-
-STARTUP_DELAY_SEC=5
-SLEEP_DURATION_SEC=60
-TIME_CURRENT=$( date "+%s" )
-TIME_FLOW_DAILY_START=-1        # heure de reference du plan => plage de j+0_15h00 à j+1_14h59
-TIME_FLOW_DAILY_END=-1
-REF_FLOW_DAILY_START="${RD_FLOW_DAILY_START:-15:00:00}"
-REF_FLOW_DAILY_END="${RD_FLOW_DAILY_END:-14:59:59}"
-
-REF_TMP_DIR=${RD_TMP_DIR:-/tmp/rundeck}
-[ ! -d "${REF_TMP_DIR}" ] && REF_TMP_DIR=${RD_PLUGIN_TMPDIR}        # use the plugin tmp as a fallback
-
-CURL_API_ROOT="${RD_JOB_SERVERURL%/}/api"
-CURL_API_CMD="curl --silent --get --data-urlencode authtoken=${RD_TOKEN} ${CURL_API_ROOT}"
-
-VAL_OK=";ok;success;succeeded;"
-VAL_KO=";ko;error;failed;aborted;timedout;timeout"
 
 
 # ----------------------------------------------------------------------------
@@ -85,22 +67,63 @@ Worth mentionning :
  "
 }
 
+
 # -----------------------------------------------------------------------------
-# stderr output
-echoerr() { printf "%s\n" "$*" >&2; }
+# curl command
+# args: anything from: curl https://rundeck/api/<arg1> <arg2> <arg3> ...
+_curlCmd() {
+    CURL_API_ROOT="${RD_JOB_SERVERURL%/}/api"
+    # curl v7.55.0+ is required for using "@-"
+    echo "X-Rundeck-Auth-Token: $RD_TOKEN" | curl --retry 3 --user-agent "dependencies-wait_job/curl" --get -H @- --silent ${CURL_API_ROOT}/"$@"  2>&1
+}
+# ref: https://docs.rundeck.com/docs/api/rundeck-api-versions.html
+CURL_API_VERSION_MIN=14
 
 # check the Rundeck API access to all projects
+# input: n/a
+# output: error code
 rdProjects_VerifyAccess() {
-    CURL_API_VERSION=11
-    sTemp=$( ${CURL_API_CMD}/$CURL_API_VERSION/projects 2>&1)
-    if [ $? -ne 0 ] || ! echo "$sTemp" | grep -i -q "projects count="; then echoerr "Error: cannot contact rundeck through the API nor access the project list"; echoerr "$sTemp"; exit 1; fi
+    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/projects )
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'  ||  ! echo "$sData" | grep -i -q "projects count="; then echoerr "Error: cannot contact rundeck through the API nor access the project list"; echoerr "$sData"; exit 1; fi
 }
 
+
+# get the projects list
+# input: n/a
+# output: list of projects names
+rdProjects_getList() {
+    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/projects )
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: projects list - bad API query"; echoerr "$sData"; exit 1; fi
+
+    sData=$( echo "$sData" | grep -Po "<name>\K.*?(?=</name>)" )
+
+    echo "$sData" | grep -v '^#'
+    return 0    # grep will return rc=1 if there is no data
+}
+
+
+# get the job list from a project
+# input: "project name"
+# output: list of jobs names
+rdProject_getJobList() {
+    TARGET_PROJECT=$1
+    
+    CURL_API_VERSION=17
+    sData=$( _curlCmd ${CURL_API_VERSION}/project/${TARGET_PROJECT}/jobs )
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: job list - bad API query"; echoerr "$sData"; exit 1; fi
+
+    # tranform the xml data in single line, then add \n between job blocs
+    echo echo "$sData" | tr '\n' ' ' | sed 's#>[ \t]*<#><#g' | sed 's#</job><job#</job>\n<job#g'
+}
+
+
 # find a job GID from his project, group and job names
+# input: TARGET_PROJECT_NAME, TARGET_GROUP_NAME, TARGET_JOB_NAME
+# output: job id
 rdJob_GetIdFromName() {    
     CURL_API_VERSION=17
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  2>&1 )
-    if [ $? -ne 0 ] || ! echo "$sData"|grep -i -q "<jobs count="; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "API message: $sData"; exit 1; fi
+    sData=$( _curlCmd ${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  )
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'  ||  ! echo "$sData"|grep -i -q "<jobs count="; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "API message: $sData"; exit 1; fi
     if echo "$sData"|grep -i -q "<jobs count='0'"; then echoerr "Error: rdJob_GetIdFromName - target job '$TARGET_JOB_NAME' in group '$TARGET_GROUP_NAME' wasn't found"; exit 1; fi
     if ! echo "$sData"|grep -i -q "<jobs count='1'>"; then echoerr "Error: rdJob_GetIdFromName - more than a single job was returned "; exit 1; fi
         
@@ -111,13 +134,14 @@ rdJob_GetIdFromName() {
     echo "$sData" | grep -oP -i "job id='\K.*?(?=')"
 }
 
-# la commande liste la totalité des jobs en execution, sans filtrage possible
+# the execution/running api list all currently running job, without any filter option
+# input: TARGET_PROJECT_NAME, TARGET_JOB_ID
+# output: 0 or 1 depending if the job is running or not 
 rdJob_IsRunning() {
-    CURL_API_VERSION=14
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/executions/running 2>&1  )
-    if [ $? -ne 0 ]; then echoerr "Error: rdJob_IsRunning - bad API query"; echoerr "API message: $sData"; exit 1; fi
+    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/project/${TARGET_PROJECT_NAME}/executions/running  )
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: rdJob_IsRunning - bad API query"; echoerr "API message: $sData"; exit 1; fi
     
-    # recherche de l'id du job cible
+    # look for the requested job id
     sData=$( echo "$sData" | grep "$TARGET_JOB_ID" | head -1 )
     
     if [ -z "$sData" ]; then 
@@ -127,15 +151,23 @@ rdJob_IsRunning() {
     fi
 }
 
+
+# find the last job execution data
+# input: TARGET_JOB_ID
+# output: the latest execution data
 rdJob_GetLastExecData() {
-    CURL_API_VERSION=11
-    sData=$( ${CURL_API_CMD}/${CURL_API_VERSION}/job/${TARGET_JOB_ID}/executions --data-urlencode max=1  2>&1 )    
-    if [ $? -ne 0 ]; then echoerr "Error: rdJob_GetLastExecData - bad API query"; echoerr "API message: $sData"; exit 1; fi
+    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/job/${TARGET_JOB_ID}/executions --data-urlencode max=1 )    
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: rdJob_GetLastExecData - bad API query"; echoerr "API message: $sData"; exit 1; fi
 
     echo "$sData" | grep -v '^#'
-    return 0    # grep renvoie rc=1 s'il n'y a pas de donnees
+    return 0    # grep will return rc=1 if there is no data
 }
 
+
+# selected value frop a job execution data
+# input: "-<data type to retrieve>", TARGET_JOB_LASTEXEC_DATA
+# output: "the value for the specific data type"
+#
 # structure : 
 # rd-cli: 29 succeeded 2017-05-25T11:21:00+0200 2017-05-25T11:21:01+0200 http://<server>:<port>/project/<project name>/execution/show/9 job b8bae947-013a-4097-819f-86870b19662e <group>/<job name>
 # api : ... <execution id='1116 ... status='succeeded' ...> ... <date-started unixtime='1512882600352'>2017-12-10T05:10:00Z</date-started> ... <date-ended unixtime='1512882604078'>2017-12-10T05:10:04Z</date-ended> ...
@@ -181,7 +213,7 @@ valueRet=""
         -nodes_success)
             valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | tr '\n' '\a' | grep -oP -i "<successfulNodes>\K.*?(?=</successfulNodes>)" | tr '\a' '\n' )
             if [ ! -z "$valueRet" ]; then
-                # suppression de '<node name=', puis des chars ' \ /  > et des espaces restants autour et lignes vides
+                # remove '<node name=' then the chars  ' \ /  > then whitespaces around then empty lines
                 valueRet=$( echo "$valueRet" | sed "s/ *<node name=//;s#[\\'/>]##g;s/^ *//;s/ *$//;/^$/d" )
             fi
             ;;
@@ -189,7 +221,7 @@ valueRet=""
         -nodes_fail)
             valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | tr '\n' '\a' | grep -oP -i "<failedNodes>\K.*?(?=</failedNodes>)" | tr '\a' '\n' )
             if [ ! -z "$valueRet" ]; then
-                # suppression de '<node name=', puis des chars ' \ /  > et des espaces restants autour et lignes vides
+                # remove '<node name=' then the chars  ' \ /  > then whitespaces around then empty lines
                 valueRet=$( echo "$valueRet" | sed "s/ *<node name=//;s#[\\'/>]##g;s/^ *//;s/ *$//;/^$/d" )
             fi
             ;;
@@ -209,6 +241,15 @@ echo "RUNDECK DEPENDENCIES WAIT_JOB MODULE"
 echo "Command line used : $0 $*"
 echo ""
 
+
+# load the include file
+source ${PLUGIN_INCLUDE_FILE}
+if [ $? -ne 0 ]; then echo "Error: the function file '$PLUGIN_INCLUDE_FILE' was not found"; exit 1; fi
+
+
+# curl presence verification
+if ! command -v curl >/dev/null 2>&1; then echoerr "Error: the command 'curl' was not found in the path"; exit 1; fi
+
 # parameters access validation
 if [ $# -eq 0 ]; then usageSyntax; exit 1; fi
 
@@ -217,17 +258,17 @@ while [ $# -gt 0 ]; do
 
     case $arg in
         -project)
-            TARGET_PROJECT_NAME=$( echo "$2" | sed 's/^ *//;s/ *$//' )
+            TARGET_PROJECT_NAME=$( trim "$2" )
             shift
             ;;
 
         -group)
-            TARGET_GROUP_NAME=$( echo "$2" | sed 's/^ *//;s/ *$//' )
+            TARGET_GROUP_NAME=$( trim "$2" )
             shift
             ;;
 
         -job)
-            TARGET_JOB_NAME=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            TARGET_JOB_NAME=$( trim "$2" )
             shift
             ;;
         
@@ -250,13 +291,13 @@ while [ $# -gt 0 ]; do
             ;;
 
         -wait|-max[wW]ait)
-            DEP_WAIT_TIMEOUT=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            DEP_WAIT_TIMEOUT=$( trim "$2" )
             if ! [[ $DEP_WAIT_TIMEOUT =~ '^[0-9]+$' ]] ; then echoerr "Error: $arg $2 must be a number"; exit 1; fi
             shift
             ;;
 
         -startup_delay)
-            STARTUP_DELAY_SEC=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            STARTUP_DELAY_SEC=$( trim "$2" )
             shift
             ;;
             
@@ -265,17 +306,17 @@ while [ $# -gt 0 ]; do
             ;;
         
         -sleep_duration)
-            SLEEP_DURATION_SEC=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            SLEEP_DURATION_SEC=$( trim "$2" )
             shift
             ;;
 
         -flow_daily_start)
-            REF_FLOW_DAILY_START=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            REF_FLOW_DAILY_START=$( trim "$2" )
             shift
             ;;
 
         -flow_daily_end)
-            REF_FLOW_DAILY_END=$(echo "$2" | sed 's/^ *//;s/ *$//' )
+            REF_FLOW_DAILY_END=$( trim "$2" )
             shift
             ;;
 
@@ -292,7 +333,8 @@ while [ $# -gt 0 ]; do
             
         *)
             # rundeck can pass additionals spaces as args
-            if [ ! -z "$( echo $1 | tr -d '[:space:]' )" ]; then
+            # rundeck issue #8509 - sending the plugin.yaml variable name as-is instead of evaluated when empty
+            if [ ! -z "${1// /}" ] && [ "$1" != '${option.DEPENDENCY_EXTRA_PARAMS}' ]; then
                 echoerr "Error: '$1' argument is unknown"
                 usageSyntax
                 exit 1
@@ -300,16 +342,15 @@ while [ $# -gt 0 ]; do
             ;;
     esac
     
-    #  next argument
+    #  argument suivant
     [ $# -gt 0 ] && shift
 done
 
-# Cmd line args: mandatory values 
+# validate received and mandatory values
 if [ -z "$TARGET_PROJECT_NAME" ]; then echoerr "Error: the job's project name is required"; exit 1; fi
 if [ -z "$TARGET_GROUP_NAME" ]; then echoerr "Error: the job's group name is required"; exit 1; fi
 if [ -z "$TARGET_JOB_NAME" ]; then echoerr "Error: the job name is required"; exit 1; fi
 
-# Cmd line args: node filters
 if [ "$DEP_NODE_MODE" != "global" ]; then
     # a started job with an active filter will have RD_JOB_FILTER=name: srv1,srv2,...
     if [ ! -z "$RD_JOB_FILTER" ] && [[ ${RD_JOB_FILTER} == "name:"* ]]; then
@@ -324,48 +365,33 @@ echo "Rundeck API Token found"
 rdProjects_VerifyAccess || exit 1
 
 
-# Workflow start and end time calculation -------------------------------------
-dTodayLimit=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
-dTodayLimit=$( date -d "${dTodayLimit}" "+%s" )
-
-# Current workflow is still in the day-1 => today boundary
-if [ $TIME_CURRENT -lt $dTodayLimit ]; then
-    TIME_FLOW_DAILY_START=$( date --date='-1 day' "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
-    TIME_FLOW_DAILY_START=$( date -d "${TIME_FLOW_DAILY_START}" "+%s" )
-    
-    TIME_FLOW_DAILY_END=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_END}" )
-    TIME_FLOW_DAILY_END=$( date -d "${TIME_FLOW_DAILY_END}" "+%s" )
-
-# Current workflow was started today and will end at day+1
-else
-    TIME_FLOW_DAILY_START=$( date "+%Y-%m-%d ${REF_FLOW_DAILY_START}" )
-    TIME_FLOW_DAILY_START=$( date -d "${TIME_FLOW_DAILY_START}" "+%s" )
-    
-    TIME_FLOW_DAILY_END=$( date --date='+1 day' "+%Y-%m-%d ${REF_FLOW_DAILY_END}" )
-    TIME_FLOW_DAILY_END=$( date -d "${TIME_FLOW_DAILY_END}" "+%s" )
-fi
+# Workflow start and end time -------------------------------------
+TIME_FLOW_DAILY_START=$( timeFlow_dailyStart )
+TIME_FLOW_DAILY_END=$( timeFlow_dailyEnd )
+TIME_FLOW_JOB_SKIPFILE=${REF_TMP_DIR}/deps_job_skip.$$.${RD_JOB_ID}
 
 
 # information banner ----------------------------------------------------------
-echo "Current PID:$$"
+echo "Current PID:  $$"
+echo "Started at:   $( date --iso-8601=seconds )"
 echo "----------------------------------------------"
-echo "FLOW START: $( date -d @$TIME_FLOW_DAILY_START --rfc-2822 )"
-echo "FLOW END:   $( date -d @$TIME_FLOW_DAILY_END --rfc-2822 )"
-echo "PROJECT:    $TARGET_PROJECT_NAME"
-echo "JOB group:  $TARGET_GROUP_NAME"
-echo "JOB name:   $TARGET_JOB_NAME"
+echo "FLOW START:   $( date -d @$TIME_FLOW_DAILY_START --rfc-2822 )"
+echo "FLOW END:     $( date -d @$TIME_FLOW_DAILY_END --rfc-2822 )"
+echo "PROJECT:      $TARGET_PROJECT_NAME"
+echo "JOB group:    $TARGET_GROUP_NAME"
+echo "JOB name:     $TARGET_JOB_NAME"
 echo "JOB wanted state : $TARGET_JOB_EXPECTED_STATUS"
 echo "JOB dep type: $( if [ $TARGET_JOB_MANDATORY -eq 0 ]; then echo 'optional'; else echo 'required'; fi )"
 echo "Node filter mode: ${DEP_NODE_MODE}"
-[ "${DEP_NODE_MODE}" == "adapt" ] && [ ! -z "$DEP_JOB_NODE_LST" ] && echo "Filter list  : $DEP_JOB_NODE_LST"
-[ "${DEP_NODE_MODE}" == "regex" ] && echo "Filter regex : $DEP_JOB_NODE_REGEX"
+[ "${DEP_NODE_MODE}" == "adapt" ] && [ ! -z "$DEP_JOB_NODE_LST" ] && echo "Filter list:  $DEP_JOB_NODE_LST"
+[ "${DEP_NODE_MODE}" == "regex" ] && echo "Filter regex: $DEP_JOB_NODE_REGEX"
 echo "----------------------------------------------"
 echo ""
 
 
 # check if the dependency was set to skip
 if [ ! -z "$DEPENDENCY_IGNORE" ]; then
-    echo "DEPENDENCY_IGNORE variable or -bypass parameter is set => the script will exit immediately => success"
+    echo "DEPENDENCY_IGNORE variable or -skip parameter is set => the script will exit immediately => success"
     exit 0
 fi
 
@@ -374,32 +400,20 @@ sleep ${STARTUP_DELAY_SEC}s
 
 
 # Target job waiting sequence -------------------------------------------------
+
 # lookup for the target job ID
 TARGET_JOB_ID=$( rdJob_GetIdFromName ) || exit 1
-TARGET_JOB_SKIPFILE=${REF_TMP_DIR}/deps_skip.$$.${TARGET_JOB_ID}
-
 echo "JOB ID found: $TARGET_JOB_ID"
 echo ""
 
-echo "Waiting loop started (for $( date -u -d @${DEP_WAIT_TIMEOUT} +'%Hh%Mm%Ss' ))..."
-echo "To exit this loop, run this shell command : sudo -u ${USER} touch ${TARGET_JOB_SKIPFILE}"
-echo ""
 
 # Wait loop
+timeFlow_startWaitingMsg
 nCount=0
 while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do    
     
-    # search the manual skipfile presence
-    if [ ! -z "$TARGET_JOB_SKIPFILE" ] && [ -f "$TARGET_JOB_SKIPFILE" ]; then
-        echo "Skip file $TARGET_JOB_SKIPFILE present => success"
-        rm "$TARGET_JOB_SKIPFILE"
-        if [ $? -eq 0 ]; then 
-            TARGET_JOB_DEP_RESOLVED=1
-            break
-        else
-            echoerr "Error: the file $TARGET_JOB_SKIPFILE cannot be removed - continuing."
-        fi
-    fi
+    # search for the manually created skipfile
+    if timeFlow_skipFileExists "$TIME_FLOW_JOB_SKIPFILE"; then TARGET_JOB_DEP_RESOLVED=1; break; fi
     
     # Job execution status
     TARGET_JOB_ISRUNNING=$( rdJob_IsRunning ) || exit 1
@@ -417,6 +431,7 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
             
             # validate the job was started in the today's workflow time range
             if [ $TARGET_JOB_LASTEXEC_TIME_START -ge $TIME_FLOW_DAILY_START ]; then
+                TARGET_JOB_ISINFLOW=1
 
                 case "$TARGET_JOB_EXPECTED_STATUS" in
                     success|ok)
@@ -440,7 +455,7 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
                             TARGET_JOB_DEP_RESOLVED=1
                             echo "Node filter list - node found in : "$TARGET_JOB_STATUS_NODES
                         fi
-                    
+
                     # regex mode
                     elif  [ "$DEP_NODE_MODE" == "regex" ] && [ ! -z "$DEP_JOB_NODE_REGEX" ]; then
                         if echo "$TARGET_JOB_STATUS_NODES" | egrep -i -q "${DEP_JOB_NODE_REGEX}"; then
@@ -461,17 +476,20 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
                     fi
                 fi
 
-                
-            # different workflow found
+            # different workflow found but no job existing in the current flow
             else
                 # exit if the dependency wasn't mandatory
                 if [ $TARGET_JOB_MANDATORY -eq 0 ]; then
-                    echo "No job execution for the current flow AND optional dependency => success"
+                    if [ $TARGET_JOB_ISINFLOW -eq 1 ]; then
+                        echo "A job execution was found in the current flow but seems now to have been removed AND optional dependency => success"
+                    else
+                        echo "No job execution for the current flow AND optional dependency => success"
+                    fi
                     TARGET_JOB_DEP_RESOLVED=1
                     break
                 fi
             fi
-            
+
         # no data
         else
             # job is missing and the dependency is not mandatory
@@ -484,8 +502,8 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
     fi
     
     nCount=$(( $nCount + $SLEEP_DURATION_SEC ))
-    if [ $(( $nCount % 3600 )) -eq 0 ]; then echo "Still waiting after $(( $nCount / 3600 )) hour"; fi
-    if [ $( date "+%s" ) -ge $TIME_FLOW_DAILY_END ]; then echo "Flow limit reached: $( date -d @${TIME_FLOW_DAILY_END} --iso-8601=seconds ) => timeout"; break; fi
+    timeFlow_stillWaiting $nCount
+    if ! timeFlow_limitReach $TIME_FLOW_DAILY_END; then break; fi
     sleep ${SLEEP_DURATION_SEC}s
 done
 
