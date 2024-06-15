@@ -26,8 +26,8 @@ REF_TMP_DIR=${RD_TMP_DIR:-/tmp/rundeck}
 [ ! -d "${REF_TMP_DIR}" ] && REF_TMP_DIR=${RD_PLUGIN_TMPDIR}        # use the plugin tmp as a fallback
 
 
-VAL_OK=";ok;success;succeeded;"
-VAL_KO=";ko;error;failed;aborted;timedout;timeout"
+JOB_STATUS_OK_LST=";ok;success;succeeded;"
+JOB_STATUS_KO_LST=";ko;error;failed;aborted;timedout;timeout"
 
 
 ### Functions

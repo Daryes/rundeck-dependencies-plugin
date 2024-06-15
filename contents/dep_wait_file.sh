@@ -266,10 +266,11 @@ if [ $TARGET_FILE_RECEIVED -eq 1 ] && \
         echo "NOTICE: received flag has no content while its size is not 0."
 
     else
-        echo "Processing hash found in $TARGET_FLAG_FILENAME ..."
+        echo "$TARGET_FLAG_FILENAME has a hash definition - processing ..."
         sFlagBin=${HASH_CMD[${nFlagLen}]}
         if [ "$sFlagBin" != "" ]; then
-            echo "Related binary detected : $sFlagBin"
+            echo "=> hash binary detected : $sFlagBin"
+            echo "=> hash value detected  : $sFlagContent"
             sFileHash=$( $SSH_CMD $sFlagBin "$TARGET_DIRECTORY/$TARGET_FILENAME" 2>&1 )
             if [ $? -ne 0 ]; then echoerr "Error: could not validate the file $TARGET_DIRECTORY/$TARGET_FILENAME $SSH_TEXT_INFO"; echo "$sFileHash"; exit 1; fi
             
@@ -277,10 +278,10 @@ if [ $TARGET_FILE_RECEIVED -eq 1 ] && \
             if [ "$sFileHash" != "$sFlagContent" ]; then 
                 echoerr "Error: the hash in the flag file doesn't match with the received file"
                 echoerr "  calculated hash with $sFlagBin : $sFileHash"
-                echoerr "  hash in the flag file : $sFlagContent"
+                echoerr "  hash in the flag file          : $sFlagContent"
                 exit 1
             fi
-            echo "Target file hash is valid: $sFlagContent"
+            echo "Target file hash is valid => success"
             
         else
             echoerr "Warning: no command available for a $nFlagLen characters hash $SSH_TEXT_INFO"

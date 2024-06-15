@@ -1,13 +1,22 @@
 Change history
 ======
 
+v1.2.1 (2024/06/15)
+------
+
+- new requirement : the package/command "jq" is now required.
+- Module dependencies-wait_job: Rundeck 5.x support by switching the expected api output from xml to json.
+- Module dependencies-wait_job: updated the minimum Rundeck API version to 47 which might hamper the support of older Rundeck version.
+- Module dependencies-wait_file : rewording of some messages.
+
+
 v1.2.0 (2023/11/12)
 ------
 
-- dependencies-wait_file : new module able to wait for a file presence.
-- Better wording of the plugin descriptions
-- wait_job: updated the minimum API version from 11 to 14
-- wait_job: able to managed the disappearance of a running job with an optional dependency over it
+- Module dependencies-wait_file : new module able to wait for a file presence.
+- Better wording of the readme and plugin descriptions
+- Module dependencies-wait_job: updated the minimum Rundeck API version from 11 to 14
+- Module dependencies-wait_job: able to manage the disappearance of a running job while waiting on it with an optional dependency
 
 
 v1.1.1 (2021/05/16)
@@ -21,6 +30,7 @@ v1.1.0 (2021/04/04)
 
 - updated the minimum Rundeck API to 11
 - changed the api token to support a file based location
+- switched to semver versionning
 
 v1.0.10 (2019/06/06)
 ------

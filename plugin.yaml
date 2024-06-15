@@ -3,7 +3,7 @@
 # ref: https://github.com/rundeck/rundeck/tree/main/core/src/main/java/com/dtolabs/rundeck/core/plugins/metadata/
 # ref: https://github.com/rundeck/rundeck/blob/main/rundeckapp/grails-app/taglib/rundeck/PluginTagLib.groovy
 name: dependencies
-version: 1.2.0
+version: 1.2.1
 rundeckPluginVersion: 1.2
 targetHostCompatibility: unix
 date: Wed Aug 17 19:37:26 CEST 2017

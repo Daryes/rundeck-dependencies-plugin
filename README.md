@@ -5,6 +5,9 @@ together or to other ressources in a global flow.
 
 Support Rundeck 3.x and more
 
+[Changelog](CHANGELOG.md)
+
+
 
 ## Available modules
 
@@ -31,7 +34,7 @@ of the current flow. Even if the day change, as Rundeck does not support a proce
 The dependencies zip archive must be placed in the `/var/rundeck/lib/rundeck/libext/` directory.  
 Either the zip file as is, or a symlink to the zip file elsewhere.  
 
-If upgrading, the remaining file for the previous version must be removed.
+If upgrading, the file from the previous version must be removed.
 
 An alternate option is by using the UI under the system menu (the cog icon) => plugins.  
 You can then upload a plugin to Rundeck.
@@ -39,7 +42,7 @@ You can then upload a plugin to Rundeck.
 
 ## System requirements
 
-The curl and findutils packages must be installed.  
+The curl, jq and findutils packages must be installed.  
 
 This command must return a message with `<message>API Version not specified</message>` :  
   `curl https://<rundeck_url>/api/`

@@ -69,6 +69,9 @@ Worth mentionning :
 
 
 # -----------------------------------------------------------------------------
+# ref: https://docs.rundeck.com/docs/api/rundeck-api-versions.html
+CURL_API_VERSION_MIN=47
+
 # curl command
 # args: anything from: curl https://rundeck/api/<arg1> <arg2> <arg3> ...
 _curlCmd() {
@@ -76,15 +79,13 @@ _curlCmd() {
     # curl v7.55.0+ is required for using "@-"
     echo "X-Rundeck-Auth-Token: $RD_TOKEN" | curl --retry 3 --user-agent "dependencies-wait_job/curl" --get -H @- --silent ${CURL_API_ROOT}/"$@"  2>&1
 }
-# ref: https://docs.rundeck.com/docs/api/rundeck-api-versions.html
-CURL_API_VERSION_MIN=14
 
 # check the Rundeck API access to all projects
 # input: n/a
 # output: error code
 rdProjects_VerifyAccess() {
     sData=$( _curlCmd ${CURL_API_VERSION_MIN}/projects )
-    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'  ||  ! echo "$sData" | grep -i -q "projects count="; then echoerr "Error: cannot contact rundeck through the API nor access the project list"; echoerr "$sData"; exit 1; fi
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'  ||  ! echo "$sData" | grep -i -q '"name":' ; then echoerr "Error: cannot contact rundeck through the API nor access the project list"; echoerr "$sData"; exit 1; fi
 }
 
 
@@ -95,25 +96,23 @@ rdProjects_getList() {
     sData=$( _curlCmd ${CURL_API_VERSION_MIN}/projects )
     if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: projects list - bad API query"; echoerr "$sData"; exit 1; fi
 
-    sData=$( echo "$sData" | grep -Po "<name>\K.*?(?=</name>)" )
+    sData=$( echo "$sData" | jq -r ".[].name" )
 
-    echo "$sData" | grep -v '^#'
-    return 0    # grep will return rc=1 if there is no data
+    echo "$sData" | jq -r ".[].name"
 }
 
 
 # get the job list from a project
 # input: "project name"
-# output: list of jobs names
+# output: list of jobs id
 rdProject_getJobList() {
     TARGET_PROJECT=$1
     
-    CURL_API_VERSION=17
+    CURL_API_VERSION=${CURL_API_VERSION_MIN}
     sData=$( _curlCmd ${CURL_API_VERSION}/project/${TARGET_PROJECT}/jobs )
     if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: job list - bad API query"; echoerr "$sData"; exit 1; fi
 
-    # tranform the xml data in single line, then add \n between job blocs
-    echo echo "$sData" | tr '\n' ' ' | sed 's#>[ \t]*<#><#g' | sed 's#</job><job#</job>\n<job#g'
+    echo "$sData" | jq -r '.[].id'
 }
 
 
@@ -121,34 +120,28 @@ rdProject_getJobList() {
 # input: TARGET_PROJECT_NAME, TARGET_GROUP_NAME, TARGET_JOB_NAME
 # output: job id
 rdJob_GetIdFromName() {    
-    CURL_API_VERSION=17
+    CURL_API_VERSION=${CURL_API_VERSION_MIN}
     sData=$( _curlCmd ${CURL_API_VERSION}/project/${TARGET_PROJECT_NAME}/jobs --data-urlencode groupPathExact="$TARGET_GROUP_NAME" --data-urlencode jobExactFilter="$TARGET_JOB_NAME"  )
-    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'  ||  ! echo "$sData"|grep -i -q "<jobs count="; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "API message: $sData"; exit 1; fi
-    if echo "$sData"|grep -i -q "<jobs count='0'"; then echoerr "Error: rdJob_GetIdFromName - target job '$TARGET_JOB_NAME' in group '$TARGET_GROUP_NAME' wasn't found"; exit 1; fi
-    if ! echo "$sData"|grep -i -q "<jobs count='1'>"; then echoerr "Error: rdJob_GetIdFromName - more than a single job was returned "; exit 1; fi
+    if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true' ; then echoerr "Error: rdJob_GetIdFromName - bad API query"; echoerr "API message: $sData"; exit 1; fi
+    
+    nJobCount=$( echo "$sData" | jq ". |length" )
+    if [ $nJobCount -eq 0 ]  ; then echoerr "Error: rdJob_GetIdFromName - target job '$TARGET_JOB_NAME' in group '$TARGET_GROUP_NAME' was not found"; echoerr "$sData"; exit 1; fi
+    if [ $nJobCount -gt 1 ]; then echoerr "Error: rdJob_GetIdFromName - more than a single job was returned "; echoerr "$sData"; exit 1; fi
         
     # on purpose to have a progress status message
     echoerr "Notice: JOB definition for '${TARGET_JOB_NAME}' found - extracting id ..."
         
-    # expected format: <job id='a4997c82-86b9-42fb-8bfd-ff57fad90202' href='http://...' ...>
-    echo "$sData" | grep -oP -i "job id='\K.*?(?=')"
+    echo "$sData" | jq -r '.[].id'
 }
 
 # the execution/running api list all currently running job, without any filter option
 # input: TARGET_PROJECT_NAME, TARGET_JOB_ID
 # output: 0 or 1 depending if the job is running or not 
 rdJob_IsRunning() {
-    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/project/${TARGET_PROJECT_NAME}/executions/running  )
+    sData=$( _curlCmd ${CURL_API_VERSION_MIN}/project/${TARGET_PROJECT_NAME}/executions/running  --data-urlencode jobIdFilter="$TARGET_JOB_ID"  )
     if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: rdJob_IsRunning - bad API query"; echoerr "API message: $sData"; exit 1; fi
     
-    # look for the requested job id
-    sData=$( echo "$sData" | grep "$TARGET_JOB_ID" | head -1 )
-    
-    if [ -z "$sData" ]; then 
-        echo 0 
-    else 
-        echo 1
-    fi
+    echo "$sData" | jq ".paging.total"
 }
 
 
@@ -159,8 +152,7 @@ rdJob_GetLastExecData() {
     sData=$( _curlCmd ${CURL_API_VERSION_MIN}/job/${TARGET_JOB_ID}/executions --data-urlencode max=1 )    
     if [ $? -ne 0 ]  ||  echo "$sData" |grep -i 'error"*:true'; then echoerr "Error: rdJob_GetLastExecData - bad API query"; echoerr "API message: $sData"; exit 1; fi
 
-    echo "$sData" | grep -v '^#'
-    return 0    # grep will return rc=1 if there is no data
+    echo "$sData"
 }
 
 
@@ -175,17 +167,21 @@ rdJob_GetLastExecValue() {
 valueRet=""
 
     case $1 in
+        -count)
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".paging.total" )
+            ;;
+
         -exec_id)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "execution id='\K.*?(?=')" )
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".executions[].id" )
             ;;
         
         -exec_url)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "<execution id=.* href='\K.*?(?=')" )
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".executions[].href" )
             ;;
         
         -time_start)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "date-started unixtime='\K.*?(?=')" )
-            if [ ! -z "$valueRet" ]; then
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq ".executions[].\"date-started\".unixtime" )
+            if [ ! -z "$valueRet" ] || [ "$valueRet" == "null" ]; then
                 #cli only: valueRet=$( date -d "$valueRet" "+%s" )
                 valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
             else
@@ -194,8 +190,8 @@ valueRet=""
             ;;
 
         -time_end)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "date-ended unixtime='\K.*?(?=')" )
-            if [ ! -z "$valueRet" ]; then
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq ".executions[].\"date-ended\".unixtime" )
+            if [ ! -z "$valueRet" ] || [ "$valueRet" == "null" ]; then
                 #cli only: valueRet=$( date -d "$valueRet" "+%s" )
                 valueRet=$(( $valueRet / 1000 ))    # api unix time is in ms
             else
@@ -204,26 +200,20 @@ valueRet=""
             ;;
         
         -status|-state)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | grep -oP -i "<execution id=.* status='\K.*?(?=')" )
-            if [ -z "$valueRet" ]; then valueRet="unknown"; fi
-            if echo "$VAL_OK"|grep -q "$valueRet"; then valueRet="success"; fi
-            if echo "$VAL_KO"|grep -q "$valueRet"; then valueRet="error"; fi
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".executions[].status" )
+            if [ -z "$valueRet" ] || [ "$valueRet" == "null" ]; then valueRet="unknown"; fi
+            if echo "$JOB_STATUS_OK_LST"|grep -q "$valueRet"; then valueRet="success"; fi
+            if echo "$JOB_STATUS_KO_LST"|grep -q "$valueRet"; then valueRet="error"; fi
             ;;
         
         -nodes_success)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | tr '\n' '\a' | grep -oP -i "<successfulNodes>\K.*?(?=</successfulNodes>)" | tr '\a' '\n' )
-            if [ ! -z "$valueRet" ]; then
-                # remove '<node name=' then the chars  ' \ /  > then whitespaces around then empty lines
-                valueRet=$( echo "$valueRet" | sed "s/ *<node name=//;s#[\\'/>]##g;s/^ *//;s/ *$//;/^$/d" )
-            fi
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".executions[].failedNodes[]? // null" )
+            if [ -z "$valueRet" ] || [ "$valueRet" == "null" ]; then valueRet=""; fi
             ;;
 
         -nodes_fail)
-            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | tr '\n' '\a' | grep -oP -i "<failedNodes>\K.*?(?=</failedNodes>)" | tr '\a' '\n' )
-            if [ ! -z "$valueRet" ]; then
-                # remove '<node name=' then the chars  ' \ /  > then whitespaces around then empty lines
-                valueRet=$( echo "$valueRet" | sed "s/ *<node name=//;s#[\\'/>]##g;s/^ *//;s/ *$//;/^$/d" )
-            fi
+            valueRet=$( echo "$TARGET_JOB_LASTEXEC_DATA" | jq -r ".executions[].failedNodes[]? // null" )
+            if [ -z "$valueRet" ] || [ "$valueRet" == "null" ]; then valueRet=""; fi
             ;;
             
         *)
@@ -247,8 +237,9 @@ source ${PLUGIN_INCLUDE_FILE}
 if [ $? -ne 0 ]; then echo "Error: the function file '$PLUGIN_INCLUDE_FILE' was not found"; exit 1; fi
 
 
-# curl presence verification
+# requirements verification
 if ! command -v curl >/dev/null 2>&1; then echoerr "Error: the command 'curl' was not found in the path"; exit 1; fi
+if ! command -v jq >/dev/null 2>&1; then echoerr "Error: the command 'jq' was not found in the path"; exit 1; fi
 
 # parameters access validation
 if [ $# -eq 0 ]; then usageSyntax; exit 1; fi
@@ -274,7 +265,7 @@ while [ $# -gt 0 ]; do
         
         -state)
             TARGET_JOB_EXPECTED_STATUS=$( echo "$2" | tr '[:upper:]' '[:lower:]' )
-            if ! echo "$VAL_OK;$VAL_KO" | grep -q "$TARGET_JOB_EXPECTED_STATUS"; then echoerr "Error: unexpected value '$2' for -state"; exit 1; fi
+            if ! echo "$JOB_STATUS_OK_LST;$JOB_STATUS_KO_LST" | grep -q "$TARGET_JOB_EXPECTED_STATUS"; then echoerr "Error: unexpected value '$2' for -state"; exit 1; fi
             shift
             ;;
 
@@ -421,7 +412,7 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
     if [ "$TARGET_JOB_ISRUNNING" == "0" ]; then
         # retrieve last execution information, if available
         TARGET_JOB_LASTEXEC_DATA=$( rdJob_GetLastExecData ) || exit 1
-        if [ ! -z "$TARGET_JOB_LASTEXEC_DATA" ]; then
+        if [ ! -z "$TARGET_JOB_LASTEXEC_DATA" ] && [ $( rdJob_GetLastExecValue -count ) -gt 0 ]; then
             TARGET_JOB_LASTEXEC_STATUS=$( rdJob_GetLastExecValue -status ) || exit 1
             TARGET_JOB_LASTEXEC_TIME_START=$( rdJob_GetLastExecValue -time_start ) || exit 1
             TARGET_JOB_LASTEXEC_TIME_END=$( rdJob_GetLastExecValue -time_end ) || exit 1
@@ -435,12 +426,12 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
 
                 case "$TARGET_JOB_EXPECTED_STATUS" in
                     success|ok)
-                        SEARCH_STATUS="$VAL_OK"
+                        SEARCH_STATUS="$JOB_STATUS_OK_LST"
                         TARGET_JOB_STATUS_NODES=$( rdJob_GetLastExecValue -nodes_success )     || exit 1
                         ;;
                     
                     error|failed|ko)
-                        SEARCH_STATUS="$VAL_KO"
+                        SEARCH_STATUS="$JOB_STATUS_KO_LST"
                         TARGET_JOB_STATUS_NODES=$( rdJob_GetLastExecValue -nodes_fail )        || exit 1
                         ;;
                 esac
@@ -500,7 +491,7 @@ while [ $nCount -lt ${DEP_WAIT_TIMEOUT} ]; do
             fi
         fi    
     fi
-    
+
     nCount=$(( $nCount + $SLEEP_DURATION_SEC ))
     timeFlow_stillWaiting $nCount
     if ! timeFlow_limitReach $TIME_FLOW_DAILY_END; then break; fi
