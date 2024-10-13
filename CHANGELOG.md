@@ -1,12 +1,11 @@
 Change history
 ======
 
-
 v2.0.0 (2024/09/25)
 ------
 - Fully rewritten in Groovy, this removes any external dependency like jq, curl or others, and reduces the load on the system.    
   The API access token is also not required anymore.
-- The jar archive name is renommed to `dependencies-plugin-<version>`
+- The jar archive filename is renamed to `dependencies-plugin-<version>-<date>`
 - Rundeck 5+ is required, see the readme for how to upgrade.  
   Rundeck 4 with java 11 might work, but this scenario has not been validated.
 - New module wait-for slot : gives the possibility to regroup different executions together and limit the amount of concurrent executions in each group.
@@ -16,6 +15,7 @@ v2.0.0 (2024/09/25)
   They replace the related variables in the shell environment.  
 - module wait-for job : informational messages will appear each time the target job state change, from "missing" to "running" to "finished".
 - Some of the status messages are more detailled.
+
 
 v1.2.1 (2024/06/15)
 ------

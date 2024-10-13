@@ -82,21 +82,6 @@ If you were using the Dependencies plugin v1.x before, there are also additional
 [in the dedicated page](doc/Migration_v1x.md).
 
 
-## Job naming suggestions
-
-Given how the dependency plugin change Rundeck behavior, some helpfull informations, while available, are not immediately visible, especially in the execution history.  
-To alleviate this, the following informations directly in the job names might help :  
-
-* Rundeck allows spaces, but also the characters `( ) [ ] - _ /` in the job names, use them to make multiple informations easier to distinguish.  
-* add the periodicity in the name, ie : daily, weekly, monthly, ... or manual for manual launches.  
-* separate each job in groups, by theme.  
-* have a `flag - start` and `flag - end` job for each group.  
-* if you have a group covering multiple frequencies, have a `flag - end (daily)` as usual, but also a `flag - end all (daily)` linked to all the jobs, using the softlink dependency type.  
-  If necessary, you can also put a `flag - end (weekly)` and/or a `flag - end (monthly)` in the mix.  
-  Having those in the execution history make them visible due to their shorter name, and understanding this is also the day the weekly or monthly jobs are launched.  
-* For the cases an order must be strictly followed when manually launched, also add a numbering in the name
-
-
 # Licence  
 
 [Apache 2.0](LICENSE)
