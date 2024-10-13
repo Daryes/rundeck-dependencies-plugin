@@ -1,0 +1,53 @@
+- defaultTab: nodes
+  description: "Dependency on the \"do not launch\" job  \n1 : hard dep unable to\
+    \ complete - require to create a skip file  \n"
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: c9c14a93-5d26-480d-8e94-4abf485652f3
+  loglevel: INFO
+  name: Dependency - jobs - 4 - dep on do not launch - need a skip file
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  - description: 'don''t ask, should be set to RUNDECK_WORKDIR'
+    hidden: true
+    name: working_dir
+    required: true
+    value: /tmp/rundeck
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        command: bash -c -- "echo You will need to create a skip file in the 'dep
+          hardlink' step >&2"
+      description: echo
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "touch ${unquotedoption.working_dir}/dependencies-wait_job.skip.${job.execid}.3"
+      nodeStep: true
+      type: localexec
+    - configuration:
+        force_launch: 'true'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 3600
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - x - do not launch me
+        target_project: ${job.project}
+      description: dep hardlink - skipfile required
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: c9c14a93-5d26-480d-8e94-4abf485652f3

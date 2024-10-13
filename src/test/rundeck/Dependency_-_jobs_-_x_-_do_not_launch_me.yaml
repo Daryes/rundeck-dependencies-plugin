@@ -1,0 +1,22 @@
+- defaultTab: nodes
+  description: "job for testing the lack of execution.  \nIf started, delete the execution\
+    \ in the activity\n"
+  executionEnabled: false
+  group: tests-dependency-jobs
+  id: 0a386fd9-dde0-43ba-baa0-e10547d676f3
+  loglevel: INFO
+  name: Dependency - jobs - x - do not launch me
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: false
+  sequence:
+    commands:
+    - configuration:
+        command: bash -c "echo told you no to launch me"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 0a386fd9-dde0-43ba-baa0-e10547d676f3

@@ -1,0 +1,47 @@
+- defaultTab: nodes
+  description: Dependency on the sleep job with node filtering active
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: e4a2e81c-45a3-4a48-8bf9-dd573cf30887
+  loglevel: INFO
+  name: Dependency - jobs - 6 - dep on sleep with node filter
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: 'name: localhost '
+  nodesSelectedByDefault: true
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+    value: -debug
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 1 - sleep
+        target_project: ${job.project}
+      description: deps
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: e4a2e81c-45a3-4a48-8bf9-dd573cf30887

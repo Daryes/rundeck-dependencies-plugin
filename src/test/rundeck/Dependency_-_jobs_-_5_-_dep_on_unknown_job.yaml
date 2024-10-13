@@ -1,0 +1,42 @@
+- defaultTab: nodes
+  description: Dependency on non existing job
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: 10562e33-604b-4d7e-9aba-5d507f42278d
+  loglevel: INFO
+  name: Dependency - jobs - 5 - dep on unknown job
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - x - not existing job
+        target_project: ${job.project}
+      description: deps
+      errorhandler:
+        configuration:
+          command: bash -c -- "echo job recovered"
+        keepgoingOnSuccess: true
+        nodeStep: true
+        type: localexec
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 10562e33-604b-4d7e-9aba-5d507f42278d

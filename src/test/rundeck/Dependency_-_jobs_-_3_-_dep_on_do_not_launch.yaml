@@ -1,0 +1,37 @@
+- defaultTab: nodes
+  description: "Dependency on the \"do not launch\" job  \n1 : soft dep on status=success\
+    \  \n"
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: 4ed68795-bbd5-495f-aaaa-63f988cad6e6
+  loglevel: INFO
+  name: Dependency - jobs - 3 - dep on do not launch
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -softlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - x - do not launch me
+        target_project: ${job.project}
+      description: dep soflink
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 4ed68795-bbd5-495f-aaaa-63f988cad6e6

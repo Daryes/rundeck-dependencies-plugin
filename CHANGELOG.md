@@ -1,10 +1,26 @@
 Change history
 ======
 
+
+v2.0.0 (2024/09/25)
+------
+- Fully rewritten in Groovy, this removes any external dependency like jq, curl or others, and reduces the load on the system.    
+  The API access token is also not required anymore.
+- The jar archive name is renommed to `dependencies-plugin-<version>`
+- Rundeck 5+ is required, see the readme for how to upgrade.  
+  Rundeck 4 with java 11 might work, but this scenario has not been validated.
+- New module wait-for slot : gives the possibility to regroup different executions together and limit the amount of concurrent executions in each group.
+- all modules : the skip file now uses the current execution ID and the step number in its naming scheme instead of the job ID.
+- all modules : the  initial timeout duration has been reduced to 12h instead of 18h.
+- all modules : new properties are available to modify the initial timeout duration, the flow starting time and the flow ending time.  
+  They replace the related variables in the shell environment.  
+- module wait-for job : informational messages will appear each time the target job state change, from "missing" to "running" to "finished".
+- Some of the status messages are more detailled.
+
 v1.2.1 (2024/06/15)
 ------
 
-- new requirement : the package/command "jq" is now required.
+- New requirement : the package/command "jq" is now required.
 - Module dependencies-wait_job: Rundeck 5.x support by switching the expected api output from xml to json.
 - Module dependencies-wait_job: updated the minimum Rundeck API version to 47 which might hamper the support of older Rundeck version.
 - Module dependencies-wait_file : rewording of some messages.

@@ -1,0 +1,43 @@
+- defaultTab: nodes
+  description: validate multiple configuration errors
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: 6aff5e24-7c31-48f1-9f62-d9098fb17a17
+  loglevel: INFO
+  name: Dependency - jobs - 7 - config errors testing
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        node_filtering: adapt
+        optional_params: -debug -skip -nodefilter_regex localhost -maxWait 10 -unknown-parameter-to-force-an-error
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - x - not existing job
+        target_project: ${job.project}
+      description: param error
+      errorhandler:
+        configuration:
+          command: bash -c -- "echo job recovered"
+        keepgoingOnSuccess: true
+        nodeStep: true
+        type: localexec
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 6aff5e24-7c31-48f1-9f62-d9098fb17a17

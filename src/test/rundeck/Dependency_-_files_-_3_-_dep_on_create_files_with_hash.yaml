@@ -1,0 +1,69 @@
+- defaultTab: nodes
+  description: "Dependency on the create files job  \n1 : dep on file with flag +\
+    \ validation + empty flag  \n2 : dep on file with flag + validation on a valid\
+    \ hash  \n3 : dep on file with flag + validation on an invalid hash  \n\n"
+  executionEnabled: true
+  group: tests-dependency-files
+  id: b85c8045-c780-44e2-b85e-1cf164c51924
+  loglevel: INFO
+  name: Dependency - files - 3 - dep on create files with hash
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'true'
+        flag_verify_hash: 'true'
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file.test
+        target_host: localhost
+      description: dep basic + flag + content empty
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'true'
+        flag_verify_hash: 'true'
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file_hash.test
+        target_host: localhost
+      description: dep basic + flag + validate
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'true'
+        flag_verify_hash: 'true'
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file_hash_invalid.test
+        target_host: localhost
+      description: dep basic + flag + validate bad hash
+      errorhandler:
+        configuration:
+          command: bash -c -- "echo job recovered"
+        keepgoingOnSuccess: true
+        nodeStep: true
+        type: localexec
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: b85c8045-c780-44e2-b85e-1cf164c51924

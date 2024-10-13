@@ -1,0 +1,75 @@
+- defaultTab: nodes
+  description: "Dependency on the create files job  \n1 : dep on missing file requiring\
+    \ a skip file + ssh on local - need a skip file\n\n"
+  executionEnabled: true
+  group: tests-dependency-files
+  id: 3992dc49-fe65-4e81-91e4-d0ade0c64e58
+  loglevel: INFO
+  name: Dependency - files - 5 - dep on create files with hash + ssh - need a skip
+    file
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  - description: 'don''t ask, should be set to RUNDECK_WORKDIR'
+    hidden: true
+    name: working_dir
+    required: true
+    value: /tmp/rundeck
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        command: bash -c -- "echo HOSTNAME=$HOSTNAME"
+      description: retrieve local hostname
+      nodeStep: true
+      plugins:
+        LogFilter:
+        - config:
+            invalidKeyPattern: \s|\$|\{|\}|\\
+            logData: 'true'
+            name: MustHaveAGroup
+            regex: ^(HOSTNAME)\s*=\s*(.+)$
+            replaceFilteredResult: 'false'
+          type: key-value-data
+      type: localexec
+    - configuration:
+        export: localhostname
+        group: export
+        value: ${data.HOSTNAME*}
+      description: convert to option
+      nodeStep: false
+      type: export-var
+    - configuration:
+        command: bash -c -- "echo  -test1 ${data.HOSTNAME} -test2 ${export.localhostname}"
+      description: test
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "touch ${unquotedoption.working_dir}/dependencies-wait_file.skip.${job.execid}.5"
+      description: create skip file
+      nodeStep: true
+      type: localexec
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'false'
+        flag_verify_hash: 'false'
+        force_launch: 'true'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 3600
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file_must_create_a_skip_file.test
+        target_host: ${export.localhostname}
+      description: dep basic + skip file
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 3992dc49-fe65-4e81-91e4-d0ade0c64e58

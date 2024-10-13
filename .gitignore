@@ -1,0 +1,10 @@
+**.zip
+**.7z
+**.jar
+**.vault
+.gradle/**
+build/**
+groovydoc/**
+javadoc/**
+rundeck-dependencies-plugin-v*/**
+

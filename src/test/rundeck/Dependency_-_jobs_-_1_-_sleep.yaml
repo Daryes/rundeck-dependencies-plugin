@@ -1,0 +1,40 @@
+- defaultTab: nodes
+  description: |
+    Sleeping job
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: a3226444-7a2e-471b-80c9-aacd6bf21c36
+  loglevel: INFO
+  name: Dependency - jobs - 1 - sleep
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: 'name: localhost '
+  nodesSelectedByDefault: true
+  options:
+  - description: 'Job waiting duration, in seconds    '
+    label: Sleep duration
+    name: sleep_duration
+    regex: '[0-9]+'
+    required: true
+    value: '60'
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - description: sleep remote
+      exec: bash -x -c "sleep ${option.sleep_duration}"
+    - configuration:
+        command: bash -x -c "sleep ${option.sleep_duration}"
+      description: sleep local
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: a3226444-7a2e-471b-80c9-aacd6bf21c36

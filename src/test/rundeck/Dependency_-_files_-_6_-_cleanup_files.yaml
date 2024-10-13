@@ -1,0 +1,41 @@
+- defaultTab: nodes
+  description: "Remove the different files for the tests.  \nThe target directory\
+    \ should be writable by the rundeck user"
+  executionEnabled: true
+  group: tests-dependency-files
+  id: 8bfd8d4e-7b7a-43de-9634-268093ca454e
+  loglevel: INFO
+  name: Dependency - files - 6 - cleanup files
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        command: bash -x -c "sleep 90"
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "rm /tmp/rundeck_deps_wait_file.test  /tmp/rundeck_deps_wait_file.test_flag  /tmp/rundeck_deps_wait_file_noflag.test"
+      description: 'files cleanup '
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "rm /tmp/rundeck_deps_wait_file_hash.test   /tmp/rundeck_deps_wait_file_hash.test_flag"
+      description: 'files cleanup '
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "rm /tmp/rundeck_deps_wait_file_hash_invalid.test   /tmp/rundeck_deps_wait_file_hash_invalid.test_flag"
+      description: 'files cleanup '
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 8bfd8d4e-7b7a-43de-9634-268093ca454e

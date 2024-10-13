@@ -1,0 +1,49 @@
+- defaultTab: nodes
+  description: "Dependency on the sleep job  \n1 : basic dep on status=success  \n\
+    2 : dep on status=error with a timeout of 10 seconds + forced launch  \n\n"
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: aab1c46a-ca9c-4867-a66b-e2ca0d4c3a18
+  loglevel: INFO
+  name: Dependency - jobs - 2 - dep on sleep
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 1 - sleep
+        target_project: ${job.project}
+      description: dep basic
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        force_launch: 'true'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 10
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 1 - sleep
+        target_project: ${job.project}
+      description: dep error + forced
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: aab1c46a-ca9c-4867-a66b-e2ca0d4c3a18

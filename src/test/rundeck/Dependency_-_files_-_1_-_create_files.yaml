@@ -1,0 +1,40 @@
+- defaultTab: nodes
+  description: "Create the different files for the tests.  \nThe target directory\
+    \ should be writable by the rundeck user"
+  executionEnabled: true
+  group: tests-dependency-files
+  id: e68c22de-0709-4d74-9663-35b4ecf23e0b
+  loglevel: INFO
+  name: Dependency - files - 1 - create files
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        command: bash -c -x -- "touch /tmp/rundeck_deps_wait_file.test   /tmp/rundeck_deps_wait_file.test_flag   /tmp/rundeck_deps_wait_file_noflag.test"
+      description: create files
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "echo 'This is a test for hash checksum validation'
+          > /tmp/rundeck_deps_wait_file_hash.test ; echo '74df5fa1522875f200c0198f8d32bcaec17ab790  rundeck_deps_wait_file_hash.test'
+          > /tmp/rundeck_deps_wait_file_hash.test_flag"
+      description: create files
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -x -- "echo 'This is a test for hash checksum validation'
+          > /tmp/rundeck_deps_wait_file_hash_invalid.test ; echo 'invalidHash' > /tmp/rundeck_deps_wait_file_hash_invalid.test_flag"
+      description: create files
+      nodeStep: true
+      type: localexec
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: e68c22de-0709-4d74-9663-35b4ecf23e0b
