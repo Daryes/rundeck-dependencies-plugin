@@ -1,2 +1,2 @@
-// must be set in settings.gradle
 rootProject.name = "dependencies-plugin"
+

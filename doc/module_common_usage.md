@@ -194,7 +194,7 @@ It will apply on the next job launch.
 ------
 
 The default shell interpreter is reused from the `SHELL` environment variable. If missing, `bash` will be used.  
-It can be changed globaly, forcing to use the value defined with the following parameters in the rundeck file : `/etc/rundeck/framework.properties` 
+It can be changed globaly, forcing to use the value defined with the following parameters in the rundeck file : `/etc/rundeck/framework.properties`  
 A restart is required.  
 
 ```

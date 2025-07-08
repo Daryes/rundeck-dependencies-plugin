@@ -69,7 +69,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
     public static final String PLUGIN_NAME = "dependencies-wait_slot"
     public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / slot"
-    public static final String PLUGIN_DESCRIPTION = "Limit job executions to a number of open slots and have other waiting their turn in a workflow."
+    public static final String PLUGIN_DESCRIPTION = "Limit job executions to a number of open slots and have others waiting their turn in a workflow."
 
     /*
     * Many problems in groovy to use constants in annotation with {} in the same class
@@ -106,11 +106,14 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     @PluginProperty(
         name = "target_slot",
         title = "Slot",
-        description = "The slot number, which is the amount of job executions allowed to run simultaneously.  \nOther executions in the same slot will wait until one of those allowed is finished.",
+        description = "The slot number, which is also the amount of job executions allowed to run simultaneously.  \n" +
+                      "For example, Slot 3 will allow a maximum of 3 jobs to proceed.  \n" +
+                      "Other executions in the *same slot* will wait until one of those allowed is finished.",
         defaultValue = "1",
         required = true
     )
     @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Slot definition") ])
+    // there is no real limit to the amount of slots, only this list set the maximum
     @SelectValues(freeSelect = false, values = [ "1", "2", "3", "4", "5" ] )
     String sPropTargetSlot;
 
@@ -153,9 +156,9 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
         // execution banner
         this.logBanner(PLUGIN_NAME)
-        this.logger.log(2, "PROJECT:           '" + sPropTargetProject + "'")
-        this.logger.log(2, "Slot number:       " + sPropTargetSlot)
-        this.logger.log(2, "Forced on timeout: " + bPropFlowForceLaunch.toString() )
+        this.logBannerTitleLineFormat("SLOT project", "'" + sPropTargetProject + "'")
+        this.logBannerTitleLineFormat("SLOT number", sPropTargetSlot)
+        this.logBannerTitleForceLaunchStatus()
 
         this.logBannerBottomConfigInfo(configuration)
 
@@ -184,12 +187,12 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
         while (true) {
             // search for the manually created skipfile
             // still have some work to do after the loop => break
-            if ( this.loopFirstActionSearchForSkipfile() ) { break; }
+            if ( this.searchForSkipfile() ) { break; }
 
             // validate the status of each execution referenced in the slot
             slotExecutionListValidateAllStatuses( this.oJobService, sPropTargetProject, nPropTargetSlot)
 
-            // free spot available in the slot
+            // search for a free spot available in the slot
             synchronized ( aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot) ) {
                 if ( aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot).size() < nPropTargetSlot ) {
                     aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot).add( sThisExecutionId )
@@ -198,11 +201,11 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
                     break
 
                 } else if (! bLoopOnetimeMsgSlotFull) {
-                    this.logger.log(2, "Notice: Slot " + sPropTargetSlot + " has reached its capacity for the project '" + sPropTargetProject + "' - waiting ..." )
+                    this.loggerNotice("Notice: Slot " + sPropTargetSlot + " has reached its capacity for the project '" + sPropTargetProject + "' - waiting ..." )
                     bLoopOnetimeMsgSlotFull = true
                 }
             }
-            
+
             // Wait and While conditions #######################################
             if ( this.loopSleepAndVerifyDurationLimit() ) { break; }
         }
@@ -210,7 +213,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
         // verify the force launch and last test for the dependency state
         this.loopEndForceLaunchAndResolvedFinalTest("no opening available in the selected '" + sPropTargetSlot + "' slot limit")
 
-        // registering this execution into the target slot
+        // registering this execution into the slot common reference for other jobs
         if ( this.bThisFlowDepResolved ) {
             synchronized ( aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot) ) {
                 if ( ! aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot).contains( sThisExecutionId ) ) {
@@ -252,7 +255,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @return : the execution definition as object
     */
     private ExecutionReference rdJob_GetObjFromExecId(JobService oJobSvc, String sTargetProjectName, String sTargetExecId) {
-        if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromExecId: search for '" + sTargetExecId + "' in '" + sTargetProjectName +"'  ...") }
+        if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromExecId: search for '" + sTargetExecId + "' in '" + sTargetProjectName + "'  ...") }
 
         try {
             return oJobSvc.executionForId(sTargetExecId, sTargetProjectName);

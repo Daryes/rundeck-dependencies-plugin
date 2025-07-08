@@ -7,7 +7,7 @@ in a global workflow, or to other ressources.
 
 ## Managing a flow (or batch processing)
 
-These plugins came from having worked with complex flow processing on other schedulers, which were  
+These plugins came from having worked before with complex flow processing on other schedulers, which were  
 providing many tools, not all present in Rundeck.  
 
 It can be reduced to this situation :
@@ -18,22 +18,24 @@ It can be reduced to this situation :
 To obtain the desired state, the dependency plugin is able to create logical links between jobs,  
 restraining them to wait for other jobs, with some fine-tuning options.  
 
-In addition, it also manage an internal flow definition, which will start the current day (d+0) at 15h00, and end the next day (d+1), same time.  
-This ensure any logical link will automatically restrict its search in the execution history inside this boundary.  
-And handling correcty when the day change, as Rundeck does not support internally a processing date as a reference.  
+In addition, it also manage an internal workflow definition, which will start the current day (d+0) at 15h00, and end the next day (d+1), same time.  
+This ensure any logical link will automatically be restricted inside this time flow boundary.  
+And handling correcty the switch to the next day, allowing workflows with a longer duration.  
 
 
 # Available modules
 
+The following modules have the built-in time limit to be integrated in the daily global workflow :
+
 * [dependencies-wait_job](doc/module_wait_job.md)  
-  This plugin allow a job to wait for one job until its completion with a specific status (success, error), launched in a defined time flow.  
-  Or multiple jobs when used with sequential steps.
+  This plugin allow a job to wait for another job until its completion with a specific status (success, error). Or multiple jobs when used with sequential steps.  
 
 * [dependencies-wait_file](doc/module_wait_file.md)  
-  This plugin allow a job to wait for the presence of a file and validate its integrity, limited to a defined time flow.  
+  This plugin allow a job to wait for the presence of a file and validate its integrity.  
 
 * [dependencies-wait_slot](doc/module_wait_slot.md)  
-  This plugin allow to restrict the number of job executions able to run together to a specific number of places in a slot, in a defined time flow.  
+  This plugin allow to restrict the number of job executions able to run together to a specific number of spots in a slot.  
+
 
 
 All modules : [common usage documentation](doc/module_common_usage.md)  

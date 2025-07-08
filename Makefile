@@ -3,11 +3,11 @@
 .DEFAULT_GOAL=help
 no_targets__:
 list: ## Show all the existing targets of this Makefile
-	@sh -c "$(MAKE) -p no_targets__ 2>/dev/null | awk -F':' '/^[a-zA-Z0-9][^\$$#\/\\t=]*:([^=]|$$)/ {split(\$$1,A,/ /);for(i in A)print A[i]}' | grep -v '__\$$' | sort -u"
+	@sh -c "$(MAKE) -p no_targets__ 2>/dev/null | awk -F':' '/^[a-zA-Z0-9][^\$$#\/\\t=]*:([^=]|$$)/ {split(\$$1,A,/ /);for(i in A)print A[i]}' | egrep -v '(__\$$|^Makefile.*)' | sort -u"
 
 .PHONY: help
 help: ## Show the targets and their description (this screen)
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep --no-filename -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort -h | awk 'BEGIN {FS = ": .*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
 
 
 # Ensure bash is used
@@ -21,7 +21,7 @@ REPORT_DIR ?=$(MAKEFILE_DIR)/reports
 RELEASE_DIR ?=$(MAKEFILE_DIR)/build
 DOC_DIR ?=$(MAKEFILE_DIR)/build/docs
 
-isRelease ?=false
+IS_TAG ?=0
 
 
 clean: ## clean the build environment
@@ -43,7 +43,7 @@ clean: ## clean the build environment
 
 
 test-static-pmd-cpd-duplicate: ## code duplicate tests - syntax: make test-static-pmd-cpd-duplicate REPORT_DIR=/path/to/analysis/logs
-	/opt/pmd/pmd/bin/run.sh cpd --fail-on-violation false --minimum-tokens 100 --language groovy --format xml --dir $(MAKEFILE_DIR)/src/ > $(REPORT_DIR)/cpd.xml
+	/opt/pmd/pmd/bin/pmd cpd --no-fail-on-violation --no-fail-on-error --format xml --minimum-tokens 100 --language groovy  --dir=$(MAKEFILE_DIR)/src/ > $(REPORT_DIR)/cpd.xml
 	echo "Cpd" > $(REPORT_DIR)/$(JENKINS_WRNG)
 
 
@@ -59,5 +59,7 @@ build: ## build the module - syntax: make build BUILD_DIR=/dir/build  IS_TAG=0|1
 	gradle assemble --warning-mode all --info -DbuildDir=$(BUILD_DIR) -DisRelease=$(IS_TAG)
 
 
+# the documentation will be generated under a subdirectory - insert a basic index file at the directory root
 docs: ## generate the java/groovy documentation - syntax: make doc BUILD_DIR=/dir/build
 	gradle groovydoc  --info -DdocDir=$(DOC_DIR)
+	@if [ -s ".ci/doc/index.htm" ]; then cp ".ci/doc/index.htm" $(DOC_DIR)/ ; fi

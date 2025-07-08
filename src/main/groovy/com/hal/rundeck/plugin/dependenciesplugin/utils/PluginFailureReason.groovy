@@ -7,6 +7,7 @@ import com.dtolabs.rundeck.core.execution.workflow.steps.StepFailureReason
  * Lists the known reasons the plugins might fail.
  */
 enum PluginFailureReason implements FailureReason {
+
     KeyStorageError,
     ResourceInfoError,
     PluginFailed,

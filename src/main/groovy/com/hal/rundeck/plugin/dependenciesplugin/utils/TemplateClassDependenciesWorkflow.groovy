@@ -69,6 +69,7 @@ import java.lang.System;
 */
 @SuppressWarnings('ClassNameSameAsFilename')
 class DependenciesWorkflowTemplate implements StepPlugin {
+
     // Fill these variables and uncomment them for a new plugin
     // public static final String PLUGIN_NAME = "dependencies-wait_FILL ME"
     // public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / FILL ME"
@@ -157,18 +158,22 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         name = "optional_params",
         title = "Extra parameters",
         description = "Additional parameters from this list:  \n" +
-                                    "- -skip  \n" +
-                                    "  (alias: -bypass) Ignore the target job status and exit this step immediately without error  \n" +
-                                    "- -nodefilter_regex `'my regex mask'`  \n" +
-                                    "  Look for the target job execution only on the nodes selected by the regex mask  \n" +
-                                    "  Requires the parameter 'Node filtering' set to the mode `regex`\n" +
-                                    "- -maxWait `number`  \n" +
-                                    "  (alias: -wait `number`) Total wait duration in seconds before raising a timeout.  \n" +
+                                    "- `-maxWait number`  \n" +
+                                    "  (alias: `-wait number`) Total wait duration in seconds before raising a timeout.  \n" +
                                     "  Reaching the workflow global end time has precedence over this setting.  \n" +
                                     "  Can be combined with the parameter 'Force Launch'\n" +
-                                    "\n To use this dynamically at launch time, create an additional workflow option in this job named `DEPENDENCY_EXTRA_PARAMS` of string type, empty.  \n" +
+
+                                    "- `-nodefilter_regex 'my regex mask'`  \n" +
+                                    "  Filter the target job execution only on the nodes selected by the regex mask  \n" +
+                                    "  Requires the parameter 'Node filtering' set to the mode `regex`\n" +
+
+                                    "- `-skip`  \n" +
+                                    "  (alias: `-bypass`) Ignore the target job status and exit this step immediately without error  \n" +
+                                    "  This is usually for manual launches, when the dependency might not be desired.  \n" +
+
+                                    "\n To use these dynamically at launch time, create an additional workflow option in this job named `DEPENDENCY_EXTRA_PARAMS` of string type, empty.  \n" +
                                     "This will allow at launch time to change some properties, even use the -skip parameter to disable the dependency steps.  \n" +
-                                    "(both the created option name and this property value must be the same)." ,
+                                    "(both the created option name and the name in this property value must be the same)." ,
         defaultValue = '\${option.DEPENDENCY_EXTRA_PARAMS}',
         required = false
     )
@@ -186,14 +191,10 @@ class DependenciesWorkflowTemplate implements StepPlugin {
      */
     @Override
     void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws StepException {
-        /*
-        * ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
-        * log levels : 0=Error, 1=Warning, 2=Notice; 3=Info, 4=Debug  with 3 and 4 visible only with "Run with Debug Output"=on
-        */
+        // ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
 
         initExecutionContext();
-
-        logger.log(2, "plugin:executeStep: empty function - this should not happen")
+        loggerNotice("plugin:executeStep: empty function - this should not happen")
     }
 
     // #############################################################################################
@@ -289,39 +290,85 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
 
     /**
+    * output to logger object as notice message
+    */
+    void loggerNotice(final String sText) {
+        // log levels : 0=Error, 1=Warning, 2=Notice; 3=Info, 4=Debug  with 3 and 4 visible only with "Run with Debug Output"=on
+        logger.log(2, sText)
+    }
+
+
+    /**
+    * output to logger object as warning message
+    */
+    void loggerWarn(final String sText) {
+        logger.log(1, sText)
+    }
+
+
+    /**
+    * output to logger object as error message
+    */
+    void loggerError(final String sText) {
+        logger.log(0, sText)
+    }
+
+
+    /**
     * show the execution banner on the logger
     */
     void logBanner(final String sPluginName) {
+        if ( DEBUG ) { loggerWarn("Debug mode active !"); System.err.println("plugin:executeStep:banner:print informations ...") }
 
-        if ( DEBUG ) { logger.log(1, "Debug mode active !"); System.err.println("plugin:executeStep:banner:print informations ...") }
+        loggerNotice("MODULE: " + sPluginName.toUpperCase().replace("-", " ") )
+        loggerNotice("Package version: " + getClass().getPackage().getImplementationVersion() )
 
-        logger.log(2, "MODULE: " + sPluginName.toUpperCase().replace("-", " ") )
-        logger.log(2, "Package version: " + getClass().getPackage().getImplementationVersion() )
+        loggerNotice(DepsConstants.stdout_line)
 
-        logger.log(2, DepsConstants.stdout_line )
-        logger.log(2, "FLOW START:        " + dTimeFlowDailyStart.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
-        logger.log(2, "FLOW END:          " + dTimeFlowDailyEnd.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
+        logBannerTitleLineFormat("FLOW START", dTimeFlowDailyStart.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
+        logBannerTitleLineFormat("FLOW END", dTimeFlowDailyEnd.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
         if ( Short.compare(nflowLoopSleepDurationFinal, DepsConstants.flowLoopSleepDurationSec) != 0 ) {
-            logger.log(2, "PAUSE DURATION:    " + String.valueOf(DepsHelper.flowLoopSleepDurationSec) + "s" )
+            logBannerTitleLineFormat("PAUSE DURATION", String.valueOf(DepsHelper.flowLoopSleepDurationSec) + "s" )
         }
     }
 
+
+    /**
+    * output a formatted "title: description" line
+    * @param sTitle : the title value
+    * @param sDescription : the description for the title
+    */
+    void logBannerTitleLineFormat(String sTitle, String sDescription) {
+        if (sTitle.trim().substring(sTitle.length() - 1) != ":") { sTitle = sTitle.trim() + ":" }
+        loggerNotice( String.format("%-24s %s", sTitle, sDescription) )
+    }
+
+    /**
+    * output a title line in the banner for the "force_launch" parameter
+    */
+    void logBannerTitleForceLaunchStatus() {
+        logBannerTitleLineFormat("Force launch on timeout", bPropFlowForceLaunch.toString() )
+    }
+
+    /**
+    * show extra informations at the end of the banner
+    */
     void logBannerBottomConfigInfo(final Map<String, Object> oConfig ) {
-        logger.log(2, DepsConstants.stdout_line )
-        logger.log(2, "Started at:        " + dTimeFlowStarted.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) )
-        logger.log(2, "Exec #ID:          " + sThisExecutionId )
-        logger.log(2, DepsConstants.stdout_line )
+        loggerNotice(DepsConstants.stdout_line )
+        logBannerTitleLineFormat("Started at", dTimeFlowStarted.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) )
+        logBannerTitleLineFormat("Exec #ID", sThisExecutionId )
+        loggerNotice(DepsConstants.stdout_line )
 
         if (DEBUG) {
-            logger.log(1, "Printing other configuration parameters (can be empty) ..." )
+            loggerWarn("Printing other configuration parameters (can be empty) ..." )
             for (Map.Entry<String, Object> entry : oConfig.entrySet()) {
-                logger.log(1, entry.getKey() + ":" + entry.getValue().toString() )
+                loggerWarn(entry.getKey() + ":" + entry.getValue().toString() )
             }
 
-            logger.log(1, "")
-            logger.log(1, "Printing current execution nodes filters (null if empty) ...")
-            logger.log(1, "getFilter : " + oThisExecution.getFilter() )
-            logger.log(1, "getTargetNodes : " + oThisExecution.getTargetNodes() )
+            loggerWarn("")
+            loggerWarn("Printing current execution nodes filters (null if empty) ...")
+            loggerWarn("getFilter : " + oThisExecution.getFilter() )
+            loggerWarn("getTargetNodes : " + oThisExecution.getTargetNodes() )
         }
     }
 
@@ -332,7 +379,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     */
     Boolean logSkipActivated() {
         if (bPropFlowSkipDep) {
-            logFinishMessage("\nThe -skip parameter is set => the step will exit immediately => success" )
+            logFinishMessage("\nThe -skip parameter is set => the step will exit immediately => success")
         }
         return bPropFlowSkipDep
     }
@@ -350,11 +397,11 @@ class DependenciesWorkflowTemplate implements StepPlugin {
             DepsHelper.waiting( nStartDelaySleepSec * 1000 )
         }
 
-        logger.log(2, "\nWaiting loop started (each " + String.valueOf(nflowLoopSleepDurationFinal) + "s for " + DepsHelper.formatElapsedTime(nPropMaxWaitSecFinal, true) +
+        loggerNotice("\nWaiting loop started (each " + String.valueOf(nflowLoopSleepDurationFinal) + "s for " + DepsHelper.formatElapsedTime(nPropMaxWaitSecFinal, true) +
                       " or until the flow's ending time) ..."
                   )
-        logger.log(2, "To exit this loop, run this shell command on the Rundeck host : sudo su " + System.getProperty("user.name") + " -c 'touch " + sThisFlowSkipfile + "'" )
-        logger.log(2, "")
+        loggerNotice("To exit this loop, run this shell command on the Rundeck host : sudo su " + System.getProperty("user.name") + " -c 'touch " + sThisFlowSkipfile + "'" )
+        loggerNotice("")
     }
 
 
@@ -362,7 +409,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * test if the skip file was created
     * @return : true if the skip file is present, set also bThisFlowDepResolved = true
     */
-    Boolean loopFirstActionSearchForSkipfile() {
+    Boolean searchForSkipfile() {
         Boolean bRet = false
 
         if ( DEBUG ) { System.err.println("\nplugin:executeStep:loop:new pass starting...") }
@@ -372,7 +419,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
             bRet = true
         }
 
-        if ( DEBUG ) { System.err.println("plugin:executeStep:loop:loopFirstActionSearchForSkipfile: skip file status : " + String.valueOf(bThisFlowDepResolved) ) }
+        if ( DEBUG ) { System.err.println("plugin:executeStep:loop:searchForSkipfile: skip file status : " + String.valueOf(bThisFlowDepResolved) ) }
 
         return bRet
     }
@@ -408,7 +455,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
         if ( ! bThisFlowDepResolved ) {
             throw new StepException(
-                "Timeout reached and " + sMsgForNoDepResolved + " => abort (" + DepsHelper.dateNowPrettyPrint() + ")\n(" + DepsHelper.dateNowPrettyPrint() + ")",
+                "Timeout reached and " + sMsgForNoDepResolved + " => abort\n(" + DepsHelper.dateNowPrettyPrint() + ")",
                 PluginFailureReason.Timeout
             )
         }
@@ -417,11 +464,17 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
     /**
     * Show the final message (success or abort) with some extra informations
+    * @param sFinalMessage : message to output, can be empty
+    * @param bDecorate : (optional) boolean, add a line separator on the output if true
     */
     void logFinishMessage(String sFinalMessage) {
-        logger.log(2, sFinalMessage )
-        logger.log(2, "(" + DepsHelper.dateNowPrettyPrint() + ")" )
-        logger.log(2, "")
+        logFinishMessage(sFinalMessage, true )
+    }
+
+    void logFinishMessage(String sFinalMessage, Boolean bDecorate) {
+        if (sFinalMessage.trim().length() > 0) { loggerNotice(sFinalMessage) }
+        loggerNotice("(" + DepsHelper.dateNowPrettyPrint() + ")" )
+        if (bDecorate) { loggerNotice(DepsConstants.stdout_line_hash) }
     }
 
 

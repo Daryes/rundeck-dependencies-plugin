@@ -3,6 +3,7 @@ package com.hal.rundeck.plugin.dependenciesplugin;
 /**
 *  Constant variables common to the Dependencies plugins
 */
+@groovy.transform.CompileStatic
 class DepsConstants {
 
     /**
@@ -17,7 +18,8 @@ class DepsConstants {
     /**
     * other strings
     */
-    public static final String stdout_line = "----------------------------------------------"
+    public static final String stdout_line =      "------------------------------------------------------------"
+    public static final String stdout_line_hash = "############################################################"
     public static final String timeDurationFormatColon = "%2d:%02d:%02d"
     public static final String timeDurationFormatHMS =   "%dh%02dm%02ds"
 

@@ -123,7 +123,7 @@ class DepsHelper {
     }
 
 
-    // Custom parameter as command line function ---------------------------------------------------
+    // Custom parameter as command line style function ---------------------------------------------
 
     /**
     * return the parsed command line arguments <br/>
@@ -162,7 +162,6 @@ class DepsHelper {
                     case "-forced":
                     case "-force_launch":
                     case "-forced_launch":
-                        oRet.containsKey("debug")
                         if ( ! oRet.containsKey("force_launch") ) { oRet.put("force_launch", true) }
                         break;
 
@@ -210,9 +209,9 @@ class DepsHelper {
 
                     default:
                         // rundeck can pass additionals spaces as args
-                        if ( aData[i].trim() == "" ) {  break; }
+                        if ( aData[i].trim() == "" ) { continue; }
                         // rundeck issue #8509 - sending the variable name as-is when empty instead of an empty string
-                        if ( aData[i].trim() == '\${option.DEPENDENCY_EXTRA_PARAMS}' ) {  break; }
+                        if ( aData[i].trim() == '\${option.DEPENDENCY_EXTRA_PARAMS}' ) { continue; }
 
                         throw new StepException(
                             "DepsHelper:cliParamParse:Error - Unknown parameter : " + aData[i],
@@ -245,7 +244,7 @@ class DepsHelper {
     /**
     * Provide a short number for increasing time with a random jitter duration
     * @param nSleepJitterTimeSec : maximum jitter duration
-    * @return a duration between 0 and the maximum - it will always be 0 if jitter <= 1
+    * @return integer: duration between 0 and the maximum jitter duration - it will always be 0 if jitter <= 1
     */
     static Integer timeJitterSec(final short nSleepJitterTimeSec) {
         Integer nJitterDelaySec = 0
@@ -357,9 +356,9 @@ class DepsHelper {
 
     /**
     * format a duration in sec to "??h??m??s"
-    * @param nDurationInSec
+    * @param nDurationInSec : number duration in seconds to format
     * @param bRemoveLeadingZero : remove any "0h" or "0h00m" present in the formated result
-    * @param sFormatToUSe : (optional) printf format to use - default to "%dh%02dm%02ds"
+    * @param sFormatToUSe : (optional) printf format to use - default to "%dh%02dm%02ds" for "?h??m??s"
     * @return string : formatted time duration
     */
     static String formatElapsedTime(Integer nDurationInSec, Boolean bRemoveLeadingZero = false, String sFormatToUSe = DepsConstants.timeDurationFormatHMS ) {
@@ -458,8 +457,6 @@ class DepsHelper {
         File oSkipFile = new File(sSkipFileFullPath)
         if ( oSkipFile.exists() ) {
             oLogger.log(2, "Skip file found : " + sSkipFileFullPath + " => success" )
-            oLogger.log(2, "(" + DepsHelper.dateNowPrettyPrint() + ")" )
-            oLogger.log(2, "")
 
             try {
                 bRet = oSkipFile.delete()

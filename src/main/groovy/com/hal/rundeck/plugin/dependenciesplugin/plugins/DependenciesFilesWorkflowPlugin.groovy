@@ -87,9 +87,9 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         title = "Host name",
         description = "The host where the expected file will be located.  \n" +
           "Use `local` or `localhost` for the Rundeck server containing the expected file.  \n" +
-          "For a remote location on a different host through ssh, use either `my-remote.server.name` (the default Rundeck user will be applied) or `user@server.domain.tld` for a specific user.  \n" +
+          "For a remote location on a different host through ssh, use either `my-server-name` (the default Rundeck user will be applied) or `user@server.domain.tld` for a specific user.  \n" +
           "In both case, the rundeck user public key must be allowed on the remote host.  \n" +
-          "Please note Rundeck configuration might not allow a remote connection out of the box, as this plugin is unable to make use of the integrated vault.",
+          "Please note the Rundeck configuration might not allow a remote connection out of the box, as this plugin is unable to make use of the integrated vault.",
         defaultValue = 'localhost',
         required = true
     )
@@ -100,7 +100,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
     @PluginProperty(
         name = "target_directory",
         title = "Directory",
-        description = "The directory containing the expected file, either a local filesystem or a NFS mount point.",
+        description = "The directory containing the expected file, under a mount point for either a local or a remote filesystem (NFS, SMB, ...).",
         defaultValue = '',
         required = true
     )
@@ -125,8 +125,8 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         title = "Flag file",
         description = "Companion file 'name.ext.flag' along the targeted file 'name.ext'.  \n" +
           "Usefull for large file transfer, as it will ensure the file is complete before being processed.  \n" +
-          "The flag file can be empty or contains a hash (md5, sha1 to 512 are supported).  \n" +
-          "If the flag is a single file for multiple transfered files, disable the 'flag' setting and change the 'Filename' setting to target this single file instead.",
+          "The flag file can be empty or containing a hash to validate the file.  \n" +
+          "If the flag is a single file for multiple transfered files, disable the 'flag' setting and change the 'Filename' setting to target this single flag file instead.",
         defaultValue = "true",
         required = true
     )
@@ -138,7 +138,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         name = "flag_ext",
         title = "Flag extension",
         description = "The flag filename extension. The setting is ignored if the flag file setting is not activated.  \n" +
-            "Example: for a file named 'my_own_file.ext_flag', use '_flag'.",
+            "Example: for a flag file named `my_own_file.ext_flag`, use `_flag`.",
         defaultValue = ".flag",
         required = false
     )
@@ -150,10 +150,12 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         name = "flag_verify_hash",
         title = "Use flag hash to validate the file",
         description = "It is expected the flag file is either empty or contains a hash of the received file to verify its validity.  \n" +
-            "The setting is ignored if using a flag is not checked.  \n" +
-            "Set this to false when a flag file is not empty but the content must be ignored, to skip the hash validation.  \n" +
-            "Empty lines and comments in the flag file are allowed, full line only, starting with : # or ; or //  \n" +
-            "Please note only a single hash is expected.",
+            "The following hash formats are supported : crc, md5, sha1 to 512.  \n" +
+            "Each hash format has its own structure, but this form is usually accepted : `hash_of_the_file  filename`  \n" +
+            "This setting is ignored if using a flag is not checked.  \n" +
+            "Set this setting to false when a flag file is present but its content must be ignored, to skip the hash validation.  \n" +
+            "Empty lines and comments in the flag file are allowed, full line only, starting with # or ; or //  \n" +
+            "Please note only a single hash is expected per flag file.",
         defaultValue = "false",
         required = false
     )
@@ -184,6 +186,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         HASH_CMD_LIST.put(96, "sha384sum")
         HASH_CMD_LIST.put(128, "sha512sum")
 
+        // TODO: use instead Rundeck's own ssh libraries
         final String SSH_CMD_BASE = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=QUIET"
 
         String sCmdOutputFile
@@ -226,14 +229,14 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
 
         // execution banner
         this.logBanner(PLUGIN_NAME)
-        this.logger.log(2, "Host:              '" + sPropTargetHost + "'")
-        this.logger.log(2, "Directory:         '" + sPropTargetDirectory + "'")
-        this.logger.log(2, "File:              '" + sPropTargetFile + "'")
+        this.logBannerTitleLineFormat("FILE host", "'" + sPropTargetHost + "'")
+        this.logBannerTitleLineFormat("FILE directory", "'" + sPropTargetDirectory + "'")
+        this.logBannerTitleLineFormat("FILE name", "'" + sPropTargetFile + "'")
         if (bPropTargetHasFlag) {
-            this.logger.log(2, "Flag file:         '" + sTargetFlagFilename + "'")
-            this.logger.log(2, "Validate hash:     " + bPropTargetFlagVerifyHash.toString() )
+            this.logBannerTitleLineFormat("FILE flag", "'" + sTargetFlagFilename + "'")
+            this.logBannerTitleLineFormat("Flag hash validation", bPropTargetFlagVerifyHash.toString() )
         }
-        this.logger.log(2, "Forced on timeout: " + this.bPropFlowForceLaunch.toString() )
+        this.logBannerTitleForceLaunchStatus()
 
         this.logBannerBottomConfigInfo(configuration)
 
@@ -254,7 +257,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         }
 
         // validate the access and find command presence - output is unused as an error wll be raised if it does not work
-        this.logger.log(2, "Validating shell access " + sTargetHostMsg + "..." )
+        this.loggerNotice("Validating shell access " + sTargetHostMsg + "..." )
         DepsHelper.shellExec( sTargetHostConnect + " command -v find" )
 
 
@@ -267,8 +270,8 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         // "do...while <test>" does not exists in groovy
         while (true) {
             // search for the manually created skipfile
-            // nothing to do after exiting the loop => exit completely
-            if ( this.loopFirstActionSearchForSkipfile() ) { return ; }
+            // nothing to do after exiting the loop => output the finish message and exit completely
+            if ( this.searchForSkipfile() ) { this.logFinishMessage("") ; return ; }
 
 
             // File execution status
@@ -277,11 +280,11 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
             if ( sCmdOutputFile.length() > 0 ) {
                 // flag is requested, wait for it
                 if (bPropTargetHasFlag) {
-                    this.logger.log(2, "Target file found " + sTargetHostMsg + ": '" + sCmdOutputFile + "' - looking for flag file ...")
+                    this.loggerNotice("Target file found " + sTargetHostMsg + ": '" + sCmdOutputFile + "' - looking for flag file ...")
                     sCmdOutputFlag = DepsHelper.shellExec( sTargetHostConnect + " find '" + sPropTargetDirectory + "' -maxdepth 1 -name '" + sTargetFlagFilename + "' -type f 2>/dev/null" )
 
                     if ( sCmdOutputFlag.length() > 0 ) {
-                        this.logger.log(2, "Target flag found " + sTargetHostMsg + ": '" + sCmdOutputFlag + "' - validation ...")
+                        this.loggerNotice("Target flag found " + sTargetHostMsg + ": '" + sCmdOutputFlag + "' - validation ...")
                         this.bThisFlowDepResolved = true
                         break
                     }
@@ -300,8 +303,8 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         }
 
 
-        if ( this.bThisFlowDepResolved && bPropTargetHasFlag) {
-            this.logger.log(2, "")
+        if ( this.bThisFlowDepResolved && bPropTargetHasFlag ) {
+            this.loggerNotice("")
 
             if ( ! bPropTargetFlagVerifyHash ) {
                 this.logFinishMessage("Usage of the flag file content is not active, the received file will not be validated => success")
@@ -326,11 +329,11 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
                 sCmdFlagContent = sCmdFlagContent.split(' ')[0]
 
 
-                if (sCmdFlagContent.length() < 3) {
+                if (sCmdFlagContent.trim().length() < 3) {
                     this.logFinishMessage("The received flag file has no usable content, this will be ignored => success")
 
                 } else {
-                    this.logger.log(2, "Processing hash found in '" + sCmdOutputFlag + "' ...")
+                    this.loggerNotice("Processing hash found in '" + sCmdOutputFlag + "' ...")
 
                     if ( ! HASH_CMD_LIST.containsKey( sCmdFlagContent.length() ) ) {
                         System.err.println("plugin:loop:hash: no hash method suitable for the extracted hash with " + sCmdFlagContent.length().toString() +
@@ -343,7 +346,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
 
                     sFlagBinary = HASH_CMD_LIST.get( sCmdFlagContent.length() )
 
-                    this.logger.log(2, "Related binary detected for hash verification : " + sFlagBinary )
+                    this.loggerNotice("Related binary detected for hash verification : " + sFlagBinary )
 
                     try {
                         sFileHash = DepsHelper.shellExec( sTargetHostConnect + " " + sFlagBinary + " " + sCmdOutputFlag )

@@ -1,5 +1,6 @@
 - defaultTab: nodes
-  description: Dependency on the sleep job with node filtering active
+  description: Dependency on the sleep job with node filtering active and debug =
+    ON
   executionEnabled: true
   group: tests-dependency-jobs
   id: e4a2e81c-45a3-4a48-8bf9-dd573cf30887

@@ -1,9 +1,26 @@
 Change history
 ======
 
+v2.1.0 (2025/06/29)
+------
+- Module wait-for job: fix for a rare occurence when a targeted job has its history cleared while running, its status is set to null until completion.
+- All modules : descriptions and messages updated for consistency and clarity (parameters, information, ...)
+- All modules : the parameter `--nodefilter_regex` is now documented.
+- All modules : internal logging reworked for supporting multiple output format.
+- Helper module : groovy "CompileStatic" flag activated to reduce further the memory usage.
+- Makefile : use correctly the `IS_TAG` parameter.
+
+
+v2.0.1 (2025/02/27) - Unreleased
+------
+- all modules : corrections on some comments.
+- ci : pmd updated to use the new binary name.
+- ci : codenarc rules updated.
+
+
 v2.0.0 (2024/09/25)
 ------
-- Fully rewritten in Groovy, this removes any external dependency like jq, curl or others, and reduces the load on the system.    
+- Fully rewritten in Groovy, this removes any external dependency like jq, curl or others, and reduces the load on the system.  
   The API access token is also not required anymore.
 - The jar archive filename is renamed to `dependencies-plugin-<version>-<date>`
 - Rundeck 5+ is required, see the readme for how to upgrade.  

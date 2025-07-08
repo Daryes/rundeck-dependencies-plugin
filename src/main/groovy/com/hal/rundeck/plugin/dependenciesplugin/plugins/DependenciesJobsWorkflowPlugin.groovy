@@ -125,7 +125,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     @PluginProperty(
         name = "status_job",
         title = "Status",
-        description = "The expected ending status of the monitored job.",
+        description = "The expected ending status of the referenced job.",
         defaultValue = JOBDEPS_PROP_STATE_SUCCESS,
         required = true
     )
@@ -139,7 +139,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         name = "softlink",
         title = "Dependency type",
         description = JOBDEPS_PROP_LINK_HARD + " will wait until the required job is started, finished and with the expected status.  \n" +
-                      JOBDEPS_PROP_LINK_SOFT + " will honor the dependency only if the required job is already launched (at least running, or already complete or in error).  " +
+                      JOBDEPS_PROP_LINK_SOFT + " will honor the dependency only if the required job is already launched (at least running, or already complete or in error).  \n" +
                         "Useful for jobs not always present in a workflow, like those with a weekly or monthly frequency.",
         defaultValue = JOBDEPS_PROP_LINK_HARD,
         required = true
@@ -157,7 +157,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                       "- " + JOBDEPS_PROP_NODE_FILTER_GLOBAL + " will search for the first targeted job with a valid status, without regard for the execution node.  \n" +
                       "  Use this mode when a job cannot be found with the Adapt mode.  \n" +
                       "- " + JOBDEPS_PROP_NODE_FILTER_REGEX + " will use the provided regex filter in the execution node list to target specific nodes.  \n" +
-                      "  When used, add in 'Other Params' this extra parameter : -nodefilter_regex 'your regex mask'",
+                      "  When used, add in 'Other Params' this extra parameter : `-nodefilter_regex 'your regex mask'`",
         defaultValue = JOBDEPS_PROP_NODE_FILTER_ADAPT,
         required = true
     )
@@ -225,14 +225,13 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
         // execution banner
         this.logBanner(PLUGIN_NAME)
-        this.logger.log(2, "PROJECT:           '" + sPropTargetProject + "'")
-        this.logger.log(2, "JOB group:         '" + sPropTargetGroup + "'")
-        this.logger.log(2, "JOB name:          '" + sPropTargetJobName + "'")
-        this.logger.log(2, "JOB wanted state:  " + sPropTargetJobStatus )
-        this.logger.log(2, "JOB dep type:      " + sPropLinkMode.replace('-', '') )
-        this.logger.log(2, "Forced on timeout: " + bPropFlowForceLaunch.toString() )
-        this.logger.log(2, "Node filter mode:  " + sPropNodeFilter )
-        if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_REGEX) { this.logger.log(2, "Node filter regex: " + sPropFlowNodeFilterRegex) }
+        this.logBannerTitleLineFormat( "JOB project", "'" + sPropTargetProject + "'")
+        this.logBannerTitleLineFormat("JOB group", "'" + sPropTargetGroup + "'")
+        this.logBannerTitleLineFormat("JOB name", "'" + sPropTargetJobName + "'")
+        this.logBannerTitleLineFormat("JOB wanted state", sPropTargetJobStatus + " (" + sPropLinkMode.replace('-', '') + ")" )
+        this.logBannerTitleForceLaunchStatus()
+        this.logBannerTitleLineFormat("Node filter mode", sPropNodeFilter)
+        if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_REGEX) { this.logBannerTitleLineFormat("Node filter regex", sPropFlowNodeFilterRegex) }
 
         this.logBannerBottomConfigInfo(configuration)
 
@@ -244,8 +243,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         if ( DEBUG ) { System.err.println("plugin:executeStep:job:Looking for the target job ID ...") }
         oTargetJobRef = rdJob_GetObjFromName( this.oJobService, sPropTargetProject, sPropTargetGroup, sPropTargetJobName )
         sTargetJobId = oTargetJobRef.getId()
-        this.logger.log(2, "Notice: Definition found for the target job")
-        this.logger.log(2, "JOB ID: " + sTargetJobId)
+        this.loggerNotice("Notice: Target job definition found with the ID: " + sTargetJobId)
 
 
         // Target job waiting sequence -------------------------------------------------
@@ -257,8 +255,8 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         // "do...while <test>" does not exists in groovy
         while (true) {
             // search for the manually created skipfile
-            // nothing to do after exiting the loop => exit completely
-            if ( this.loopFirstActionSearchForSkipfile() ) { return ; }
+            // nothing to do after exiting the loop => output the finish message and exit completely
+            if ( this.searchForSkipfile() ) { this.logFinishMessage("") ; return ; }
 
 
             // Job execution status
@@ -280,15 +278,17 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                     // shouldn't be required, but many properties can be with inappropriate types or values or even null in some cases
                     if (DEBUG) { this.debug_ExecutionReferenceInfos("plugin:executeStep:loop: ", oTargetJobExec) }
 
-                    // compare the job state with the expected one
-                    // groovism => [].any{ autogenerated "it" }
-                    if (sPropTargetJobStatus == JOBDEPS_PROP_STATE_SUCCESS) {
-                        bTargetExecFound = DepsConstants.jobState_ok.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
+                    // When a job is running getStatus() can be null in rare occurence
+                    if (oTargetJobExec.getStatus()) {
+                        // compare the job state with the expected one
+                        // groovism => [].any{ autogenerated "it" }
+                        if (sPropTargetJobStatus == JOBDEPS_PROP_STATE_SUCCESS) {
+                            bTargetExecFound = DepsConstants.jobState_ok.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
 
-                    } else {
-                        bTargetExecFound = DepsConstants.jobState_ko.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
+                        } else {
+                            bTargetExecFound = DepsConstants.jobState_ko.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
+                        }
                     }
-
 
                     if (bTargetExecFound) {
                         // behavior change depending of the node compare mode
@@ -310,7 +310,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
                             for ( String i : sTargetJobExecTargetNodes.split(', *') ) {
                                 if ( sTargetJobFilterNodesAdapt.contains(i) ) {
-                                    this.logger.log(2, "Notice: Adapt mode filtering - node " + i + " found in : " +  sTargetJobExecTargetNodes )
+                                    this.loggerNotice("Notice: Adapt mode filtering - Node " + i + " found in : " +  sTargetJobExecTargetNodes )
                                     this.bThisFlowDepResolved = true
                                     break
                                 }
@@ -320,7 +320,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                         } else if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_REGEX && ! sTargetJobExecTargetNodes.isEmpty() && ! sPropFlowNodeFilterRegex.trim().isEmpty() ) {
                             if (DEBUG) { System.err.println("plugin:executeStep:loop:targetFound:filter:Regex:search in target with the regex : " + sPropFlowNodeFilterRegex ) }
                             if ( sTargetJobExecTargetNodes.matches( sPropFlowNodeFilterRegex ) ) {
-                                this.logger.log(2, "Notice: Regex mode filtering - node found in : " + sTargetJobExecTargetNodes )
+                                this.loggerNotice("Notice: Regex mode filtering - node found in : " + sTargetJobExecTargetNodes )
                                 this.bThisFlowDepResolved = true
                             }
 
@@ -331,6 +331,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                         }
 
                         // work is done  if the dep resolution is in the valid state
+                        // TODO: handle the change in the data type when this will be fixed : https://github.com/rundeck/rundeck/issues/9290
                         if (this.bThisFlowDepResolved) {
                             if (DEBUG) { System.err.println("plugin:executeStep:loop:dependency resolved ...") }
                             String sDateEndedStarted = oTargetJobExec.getDateCompleted() ?: oTargetJobExec.getDateStarted()
@@ -340,7 +341,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
                     } else {
                         if (! bLoopOnetimeMsgExecNotDesiredState) {
-                            this.logger.log(2, "Notice: Execution #" + oTargetJobExec.getId() + " found but is not in the desired state - waiting ..." )
+                            this.loggerNotice("Notice: Execution #" + oTargetJobExec.getId() + " found but is not in the desired state - waiting ..." )
                             bLoopOnetimeMsgExecNotDesiredState = true
                             bLoopOnetimeMsgJobRunning = false
                         }
@@ -348,23 +349,22 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
                 // the job exists but there is no execution in the current flow
                 } else {
-                    // the dependency is not mandatory
+                    // the dependency is not mandatory => success
                     if (! bTargetJobMandatory) {
                         this.logFinishMessage("No job execution found AND optional dependency => success" )
                         this.bThisFlowDepResolved = true
                         break
+                    }
 
-                    } else {
-                        if (! bLoopOnetimeMsgNoExecInFlow) {
-                            this.logger.log(2, "Notice: No job execution found since the current flow starting time - waiting ..." )
-                            bLoopOnetimeMsgNoExecInFlow = true
-                        }
+                    if (! bLoopOnetimeMsgNoExecInFlow) {
+                        this.loggerNotice("Notice: No job execution found since the current flow starting time - waiting ..." )
+                        bLoopOnetimeMsgNoExecInFlow = true
                     }
                 }
 
             } else {
                 if (! bLoopOnetimeMsgJobRunning) {
-                    this.logger.log(2, "Notice: The target job is currently running - waiting ..." )
+                    this.loggerNotice("Notice: The target job is currently running - waiting ..." )
                     bLoopOnetimeMsgJobRunning = true
                     bLoopOnetimeMsgExecNotDesiredState = false
                 }
@@ -393,7 +393,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @return : the job definition as object
     */
     private JobReference rdJob_GetObjFromName(JobService oJobSvc, String sTargetProjectName, String sTargetGroupName, String sTargetJobName) {
-        if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromName: search for '" + sTargetGroupName + "/" + sTargetJobName + "' in '" + sTargetProjectName +"'  ...") }
+        if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromName: search for '" + sTargetGroupName + "/" + sTargetJobName + "' in '" + sTargetProjectName + "'  ...") }
 
         try {
             return oJobSvc.jobForName(sTargetGroupName, sTargetJobName, sTargetProjectName);

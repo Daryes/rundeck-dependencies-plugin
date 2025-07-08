@@ -236,7 +236,7 @@ ruleset {
     SpaceAroundOperator 
     SpaceBeforeClosingBrace 
     SpaceBeforeOpeningBrace 
-    SpaceInsideParentheses 
+    // SpaceInsideParentheses 
     TrailingWhitespace 
     
     // rulesets/generic.xml
