@@ -3,6 +3,7 @@ package com.hal.rundeck.plugin.dependenciesplugin;
 /**
 *  Constant variables common to the Dependencies plugins
 */
+@SuppressWarnings('FieldName')
 @groovy.transform.CompileStatic
 class DepsConstants {
 
@@ -11,9 +12,9 @@ class DepsConstants {
     * <br/>ref: https://docs.rundeck.com/docs/api/#executions
     * @TODO: use instead rundeck's own "ExecutionConstants" definitions
     */
-    public static String[] jobState_ok = [ "ok", "success", "succeeded" ]
-    public static String[] jobState_ko = [ "ko", "error", "failed", "aborted", "timedout", "timeout", "other" ]
-    public static String[] jobState_ignore = [ "running", "failed-with-retry", "scheduled" ]
+    public static final String[] jobState_ok = [ "ok", "success", "succeeded" ]
+    public static final String[] jobState_ko = [ "ko", "error", "failed", "aborted", "timedout", "timeout", "other" ]
+    public static final String[] jobState_ignore = [ "running", "failed-with-retry", "scheduled" ]
 
     /**
     * other strings

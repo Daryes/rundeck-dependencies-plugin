@@ -167,8 +167,8 @@ ruleset {
     // rulesets/dry.xml
     DuplicateListLiteral 
     DuplicateMapLiteral 
-    DuplicateNumberLiteral 
-    DuplicateStringLiteral 
+    // DuplicateNumberLiteral 
+    // DuplicateStringLiteral 
     
     // rulesets/enhanced.xml
     CloneWithoutCloneable 
@@ -226,7 +226,7 @@ ruleset {
     SpaceAfterIf 
     SpaceAfterMethodCallName 
     SpaceAfterMethodDeclarationName 
-    SpaceAfterNotOperator 
+    // SpaceAfterNotOperator 
     SpaceAfterOpeningBrace 
     SpaceAfterSemicolon 
     SpaceAfterSwitch 
@@ -304,7 +304,7 @@ ruleset {
     ImportFromSunPackages 
     MisorderedStaticImports 
     NoWildcardImports 
-    UnnecessaryGroovyImport 
+    // UnnecessaryGroovyImport 
     // UnusedImport
     
     // rulesets/jdbc.xml
@@ -356,8 +356,8 @@ ruleset {
     MultipleLoggers 
     PrintStackTrace 
     Println 
-    SystemErrPrint 
-    SystemOutPrint 
+    // SystemErrPrint 
+    // SystemOutPrint 
     
     // rulesets/naming.xml
     AbstractClassName 
@@ -369,13 +369,13 @@ ruleset {
     FieldName 
     InterfaceName 
     InterfaceNameSameAsSuperInterface 
-    MethodName 
+    MethodName
     ObjectOverrideMisspelledMethodName 
     PackageName 
     PackageNameMatchesFilePath 
     ParameterName 
     PropertyName 
-    VariableName 
+    VariableName(ignoreVariableNames: '*_*_*') 
     
     // rulesets/security.xml
     FileCreateTempFile 
@@ -429,7 +429,7 @@ ruleset {
     UnnecessaryFinalOnPrivateMethod 
     UnnecessaryFloatInstantiation 
     // UnnecessaryGString 
-    UnnecessaryGetter 
+    // UnnecessaryGetter 
     UnnecessaryIfStatement 
     UnnecessaryInstanceOfCheck 
     UnnecessaryInstantiationToGetClass 
@@ -440,7 +440,7 @@ ruleset {
     UnnecessaryNullCheckBeforeInstanceOf 
     UnnecessaryObjectReferences 
     UnnecessaryOverridingMethod 
-    UnnecessaryPackageReference 
+    // UnnecessaryPackageReference 
     UnnecessaryParenthesesForMethodCallWithClosure 
     UnnecessaryPublicModifier 
     // UnnecessaryReturnKeyword 

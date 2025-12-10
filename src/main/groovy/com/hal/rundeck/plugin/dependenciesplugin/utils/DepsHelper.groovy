@@ -38,17 +38,17 @@ class DepsHelper {
     * @param nDelayMs : time to sleep in milliseconds
     */
     static void waiting(Long nDelayMs) {
-        if ( nDelayMs < 1000 ) { nDelayMs = 1000 }
+        if ( nDelayMs < 1000 ) { nDelayMs = 1000 }    // codenarc-disable-line ParameterReassignment
 
         try {
             Thread.sleep(nDelayMs);
         }
         catch (InterruptedException e) {
-            System.err.println("DepsHelper:wait:" + e + ". Probably due to a timeout.")
+            System.err.println("DepsHelper:waiting:" + e + ". Probably due to a timeout.\n(" + DepsHelper.dateNowPrettyPrint() + ")")
 
             // ref : https://www.javaspecialists.eu/archive/Issue056-Shutting-down-Threads-Cleanly.html
-            // the exception can be raised by java from another thread, if not catched it will go up in remaining threads
-            // Given raising the exception clear the interrupt flag it must be set again
+            // the exception can be raised by java from another thread, if not catched it will go up into the remaining threads
+            // And as the catched exception has cleared the interrupt flag, it must be called again before finishing
             Thread.currentThread().interrupt();
             throw new RuntimeException("Unexpected interrupt", e);
         }
@@ -69,6 +69,16 @@ class DepsHelper {
 
 
     /**
+    * return the java system version using the environment
+    * @return string : java version
+    */
+    static String getJavaVersion() {
+        return System.getProperty("java.version")
+    }
+
+
+
+    /**
     * Launch command executed in a bash shell ( bash -c "..." ) <br/>
     * Able to accept multiples commands in a single string
     * @param sCommand : command(s) to execute, it can be a single command or a chain, like "cmd1 ; cmd2 -arg && ..."
@@ -84,7 +94,7 @@ class DepsHelper {
         if (! sSystemShell || sSystemShell.length() == 0 ) { sSystemShell = DepsConstants.shellInterpreterDefault }
 
         String[] aCmd = [ sSystemShell, "-c", sCommand ]
-        
+
         // Using Runtime.getRuntime().exec(...) has been deprecated with Java 18
         // ref : https://docs.oracle.com/javase/8/docs/api/java/lang/ProcessBuilder.html
         ProcessBuilder oProcessBuild = new ProcessBuilder();
@@ -134,7 +144,7 @@ class DepsHelper {
     */
     static Map cliParamParse(String sCmdArgs) {
         String[] aData
-        Map oRet = new HashMap<>()
+        Map oRet = new HashMap<>()    // codenarc-disable-line ExplicitHashMapInstantiation
 
         // Too much unstability between the gutted CliBuilder in groovy basic and the apache commons.cli => v1.0 <= from rundeck
         // write a basic cmdline interpreter instead
@@ -152,7 +162,7 @@ class DepsHelper {
             if ( sCmdArgs.contains("-debug") ) { System.err.println("DepsHelper:cliParamParse: param " + aData[i]) }
 
             try {
-                switch( aData[i].toLowerCase() ) {
+                switch ( aData[i].toLowerCase() ) {
                     case "-debug":
                     case "-d":
                         if ( ! oRet.containsKey("debug") ) { oRet.put("debug", true) }
@@ -211,7 +221,7 @@ class DepsHelper {
                         // rundeck can pass additionals spaces as args
                         if ( aData[i].trim() == "" ) { continue; }
                         // rundeck issue #8509 - sending the variable name as-is when empty instead of an empty string
-                        if ( aData[i].trim() == '\${option.DEPENDENCY_EXTRA_PARAMS}' ) { continue; }
+                        if ( aData[i].trim() == '\${option.DEPENDENCY_EXTRA_PARAMS}' ) { continue; }    // codenarc-disable-line GStringExpressionWithinString
 
                         throw new StepException(
                             "DepsHelper:cliParamParse:Error - Unknown parameter : " + aData[i],
@@ -241,6 +251,15 @@ class DepsHelper {
         return ZonedDateTime.now().format( DateTimeFormatter.ISO_OFFSET_DATE_TIME )
     }
 
+
+    /**
+    * return the current time as a formatted string in short format
+    */
+    static String dateNowTimePrint() {
+        return ZonedDateTime.now().format( DateTimeFormatter.ISO_LOCAL_TIME ).replaceFirst("\\..*", "")
+    }
+
+
     /**
     * Provide a short number for increasing time with a random jitter duration
     * @param nSleepJitterTimeSec : maximum jitter duration
@@ -251,7 +270,7 @@ class DepsHelper {
 
         // add some randomness
         if ( nSleepJitterTimeSec > 1 ) {
-            nJitterDelaySec = (Integer)(Math.random() * nSleepJitterTimeSec + 1 - (nSleepJitterTimeSec/2) );
+            nJitterDelaySec = (Integer)(Math.random() * nSleepJitterTimeSec + 1 - (nSleepJitterTimeSec / 2) );      // codenarc-disable-line  InsecureRandom
         }
         return nJitterDelaySec
     }
@@ -271,7 +290,7 @@ class DepsHelper {
                 nRet[i] = Integer.parseInt( sRefTime[i].trim() )
             }
             sRefTime = null
-            
+
         } catch (NumberFormatException e) {
             System.err.println("DepsHelper:timeFlowDaily_TimeRef_Split: badly formatted data, expected 'number', received " + e.getMessage() + " (full data is : '" + sFlowDailyRefTime + "' )" )
             throw e
@@ -371,8 +390,6 @@ class DepsHelper {
 
         if (bRemoveLeadingZero) { sRet = sRet.replaceAll("^0h(00m)?", "") }
 
-        sFormatToUSe = null
-
         return sRet
     }
 
@@ -391,10 +408,10 @@ class DepsHelper {
 
         Integer nElapsedTimeInSec = ZonedDateTime.now().toEpochSecond() - dStartDateTime.toEpochSecond()
 
-        // print an information message each waiting hour
+        // print an information message each hour
         if ( nElapsedTimeInSec > 60 && ( nElapsedTimeInSec % 3600 ) <= nSleepDurationTimeSec ) {
             // groovy automatically switch to BigDecimal for a math operation => use .round()
-            oLogger.log(2, "Still waiting after " + ( nElapsedTimeInSec / 3600).round(0).toString() + " hour" )
+            oLogger.log(2, "Notice (" + DepsHelper.dateNowTimePrint() + ") : Still waiting after " + ( nElapsedTimeInSec / 3600).round(0).toString() + " hour (" + DepsHelper.dateNowTimePrint() + ")" )
         }
     }
 
@@ -405,7 +422,7 @@ class DepsHelper {
     * @param oLogger : log object
     * @param dStartDateTime : start date/time
     * @param dEndDateTime : end date/time
-    * @param nWaitTimeoutSec : duration in seconds before raising a timeout
+    * @param nWaitTimeoutSec : duration in seconds before changing for a timeout
     * @return boolean : true if the limit is reached, otherwise false
     */
     static Boolean timeFlowDaily_limitReach(final ExecutionListener oLogger, final ZonedDateTime dStartDateTime, final ZonedDateTime dEndDateTime, final Integer nWaitTimeoutSec ) {
@@ -413,11 +430,11 @@ class DepsHelper {
 
         // the flow time limit must be first
         if ( ZonedDateTime.now().isAfter(dEndDateTime) ) {
-            oLogger.log(2, "Flow limit reached: " + dEndDateTime.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) + " => timeout" )
+            oLogger.log(2, "Flow limit reached (" + DepsHelper.dateNowTimePrint() + ") : " + dEndDateTime.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) + " => timeout" )
             bRet = true
 
         } else if ( ZonedDateTime.now().isAfter( dStartDateTime.plusSeconds(nWaitTimeoutSec) ) ) {
-            oLogger.log(2, "Maximum waiting time reached: " + DepsHelper.formatElapsedTime(nWaitTimeoutSec, true) + " => timeout" )
+            oLogger.log(2, "Notice (" + DepsHelper.dateNowTimePrint() + ") : Maximum waiting time of " + DepsHelper.formatElapsedTime(nWaitTimeoutSec, true) + " reached => timeout" )
             bRet = true
         }
 
@@ -454,9 +471,9 @@ class DepsHelper {
         }
 
         // search for the manually created skipfile
-        File oSkipFile = new File(sSkipFileFullPath)
+        File oSkipFile = new File(sSkipFileFullPath)        // codenarc-disable-line JavaIoPackageAccess
         if ( oSkipFile.exists() ) {
-            oLogger.log(2, "Skip file found : " + sSkipFileFullPath + " => success" )
+            oLogger.log(2, "Skip file found (" + DepsHelper.dateNowTimePrint() + ") : " + sSkipFileFullPath + " => success" )
 
             try {
                 bRet = oSkipFile.delete()

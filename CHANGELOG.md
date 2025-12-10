@@ -1,9 +1,21 @@
 Change history
 ======
 
+v2.1.1 (2025/12/07)
+------
+- Readme: Java 17 is supported since v2.0 but was not specified in the readme.
+- Readme: the 'threadCount' section has been reworked.
+- All modules : some messages related to a change of state will also print the time.
+- All modules : using the parameter `-sleep_duration` will not raise a fatal error anymore in some situations.
+- All modules : The Java VM version is now printed for the debug mode.
+- All modules : lint and minor fixes.
+- CI : minor fixes and tweaks.
+- tests : new test for exiting the job with a timeout.
+
+
 v2.1.0 (2025/06/29)
 ------
-- Module wait-for job: fix for a rare occurence when a targeted job has its history cleared while running, its status is set to null until completion.
+- Module wait-for job: fix for a rare occurrence when a targeted job has its history cleared while running, altering its internal status to null until completion.
 - All modules : descriptions and messages updated for consistency and clarity (parameters, information, ...)
 - All modules : the parameter `--nodefilter_regex` is now documented.
 - All modules : internal logging reworked for supporting multiple output format.
@@ -13,9 +25,9 @@ v2.1.0 (2025/06/29)
 
 v2.0.1 (2025/02/27) - Unreleased
 ------
-- all modules : corrections on some comments.
-- ci : pmd updated to use the new binary name.
-- ci : codenarc rules updated.
+- All modules : corrections on some comments.
+- CI : pmd updated to use the new binary name.
+- CI : codenarc rules updated.
 
 
 v2.0.0 (2024/09/25)

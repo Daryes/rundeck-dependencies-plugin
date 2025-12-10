@@ -20,15 +20,15 @@ import java.util.HashMap;
 * Class for retrieving the properties values common to the Dependencies plugins - must be instanciated
 */
 class DepsHelperProperties {
+    static final String PROJ_PROP_PREFIX = "project.";
+    static final String FWK_PROP_PREFIX = "framework.";
+
 
     IFramework oFramework
     IRundeckProject oFrameworkProject
     String sProjectName
 
-    static final String PROJ_PROP_PREFIX = "project.";
-    static final String FWK_PROP_PREFIX = "framework.";
-    
-    
+
     /**
     * class initialization
     * @param oTargetFramework : the framework object from the plugin instance, usually from : PluginStepContext.getIFramework()
@@ -63,10 +63,10 @@ class DepsHelperProperties {
         // ref : https://javadoc.io/doc/org.rundeck/rundeck-core/latest/com/dtolabs/rundeck/core/execution/utils/ResolverUtil.html
         // ref : https://github.com/rundeck/rundeck/blob/main/core/src/main/java/com/dtolabs/rundeck/core/execution/utils/ResolverUtil.java
         // return ResolverUtil.resolveProperty(sPropName, sDefaultValue, null, oFrameworkProject, oFramework);
-        // => no care about the node object, but ResolverUtil needs it => local implementation
+        // => no use about the node object, but ResolverUtil needs it => local implementation
 
         String sRet = ""
-        
+
         if ( oFrameworkProject.hasProperty(PROJ_PROP_PREFIX + sPropName) ) {
             sRet = oFrameworkProject.getProperty(PROJ_PROP_PREFIX + sPropName)
             if ( sRet != "" ) {
@@ -91,7 +91,7 @@ class DepsHelperProperties {
     String getPropShellInterpreter() {
         String sSystemShell = System.getenv("SHELL")
         if (! sSystemShell || sSystemShell.length() == 0 ) { sSystemShell = DepsConstants.shellInterpreterDefault }
-        
+
         return getPropertyFromAllVariants(DepsConstants.shellInterpreterPropertyName, sSystemShell)
     }
 
@@ -144,7 +144,6 @@ class DepsHelperProperties {
     String getPropFlowDailyStartTime() {
         // no change for the start time, only the end time must be altered
         return getPropFlowDailyStartEndPivotTime()
-        
     }
 
 
@@ -157,9 +156,9 @@ class DepsHelperProperties {
         Integer[] nTimePivot = DepsHelper.timeFlowDaily_TimeRef_Split(sTimePivot)
 
         // 1 second must be substracted
-        sTimePivot = DepsHelper.formatElapsedTime( ( nTimePivot[0] * 60 * 60 ) + 
-                                                   ( nTimePivot[1] * 60 ) + 
-                                                   ( nTimePivot[2] -1 ), 
+        sTimePivot = DepsHelper.formatElapsedTime( ( nTimePivot[0] * 60 * 60 ) +
+                                                   ( nTimePivot[1] * 60 ) +
+                                                   ( nTimePivot[2] - 1 ),
                                                    false, DepsConstants.timeDurationFormatColon ) // use the hh:mm:ss format
         nTimePivot = null
 

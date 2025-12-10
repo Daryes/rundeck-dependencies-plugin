@@ -24,7 +24,7 @@ DOC_DIR ?=$(MAKEFILE_DIR)/build/docs
 IS_TAG ?=0
 
 
-clean: ## clean the build environment
+clean: ## clean the build environment and stop Gradle's daemon
 	gradle clean || true
 	gradle --stop || true
 	@if [ -d .gradle ]; then rm -r .gradle ; fi
@@ -63,3 +63,6 @@ build: ## build the module - syntax: make build BUILD_DIR=/dir/build  IS_TAG=0|1
 docs: ## generate the java/groovy documentation - syntax: make doc BUILD_DIR=/dir/build
 	gradle groovydoc  --info -DdocDir=$(DOC_DIR)
 	@if [ -s ".ci/doc/index.htm" ]; then cp ".ci/doc/index.htm" $(DOC_DIR)/ ; fi
+
+
+# vim: noexpandtab filetype=make

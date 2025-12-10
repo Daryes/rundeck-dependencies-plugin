@@ -28,14 +28,13 @@ And handling correcty the switch to the next day, allowing workflows with a long
 The following modules have the built-in time limit to be integrated in the daily global workflow :
 
 * [dependencies-wait_job](doc/module_wait_job.md)  
-  This plugin allow a job to wait for another job until its completion with a specific status (success, error). Or multiple jobs when used with sequential steps.  
+  This plugin allows a job to wait for another job until its completion with a specific status (success, error). Or multiple jobs when used with sequential steps.  
 
 * [dependencies-wait_file](doc/module_wait_file.md)  
-  This plugin allow a job to wait for the presence of a file and validate its integrity.  
+  This plugin allows a job to wait for the presence of a file and validate its integrity.  
 
 * [dependencies-wait_slot](doc/module_wait_slot.md)  
-  This plugin allow to restrict the number of job executions able to run together to a specific number of spots in a slot.  
-
+  This plugin allows to limit the number of executions running simultaneously to a specific number in a slot.  
 
 
 All modules : [common usage documentation](doc/module_common_usage.md)  
@@ -46,16 +45,19 @@ All modules : [common usage documentation](doc/module_common_usage.md)
 ## System requirements
 
 Rundeck **5.0** minimum.  
-The plugin has been tested with OpenJDK 11
+The plugin has been tested with OpenJDK 11 and 17.  
+As the code is in Groovy, the plugin should work as-is with more recent Java versions.
 
-_It is possible this plugin works on Rundeck 4.x, but is has not been fully validated. For such case, use instead the 1.x version of this plugin._
+_Please note it is possible this plugin could work on Rundeck 4.x, but is has not been fully validated. For such case, use instead the 1.x version of this plugin._
 
 
 The `quartz.threadPool.threadCount` property in the `rundeck-config.properties` must be set.  
-> A surprising situation can occurs, when only 10 executions are running and stuck, with the other executions missing.  
-> Due to the default limit of 10 simultaneous executions, the dependency modules can create a deadlock with the missing executions.  
+> A surprising situation can occurs, when only 10 executions are running and stuck, and the other executions are missing.  
+> This is due to the default limit of 10 simultaneous executions in Rundeck.  
+> It will prevent the other executions to launch, and combined with the dependency modules, a deadlock can occur.  
 > 
-> The threadCount property should be defined and set at least to 50, or more depending of the total of jobs started at the exact same time. The other executions will be launched as soon as one is finished.  
+> To prevent this situation, the threadCount property should be defined and set at least to 50, or more if required.  
+> The other executions will be launched as soon as one is finished.  
 > Restart Rundeck to apply the new value. Please note this will also increase Rundeck's memory consumption.  
 > [More information on Rundeck documentation's website](https://docs.rundeck.com/docs/administration/maintenance/tuning-rundeck.html#quartz-job-threadcount).  
 

@@ -1,10 +1,11 @@
 - defaultTab: nodes
-  description: validate multiple configuration errors
+  description: "Dependency on the \"do not launch\" job  \n1 : hard dep unable to\
+    \ complete - will exit as timeout\n"
   executionEnabled: true
   group: tests-dependency-jobs
-  id: 6aff5e24-7c31-48f1-9f62-d9098fb17a17
+  id: edd40f16-f82a-4b4d-8a80-4680465b3c42
   loglevel: INFO
-  name: Dependency - jobs - 7 - config errors testing
+  name: Dependency - jobs - 7 - dep on do not launch - exit with timeout
   nodeFilterEditable: false
   options:
   - description: Extra parameters for the dependencies
@@ -18,19 +19,14 @@
     - configuration:
         force_launch: 'false'
         node_filtering: adapt
-        optional_params: -debug -skip -nodefilter_regex localhost -maxWait 10 -unknown-parameter-to-force-an-error
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 1 -sleep_duration
+          5
         softlink: -hardlink
         status_job: success
         target_group: ${job.group}
-        target_job: Dependency - jobs - x - not existing job
+        target_job: Dependency - jobs - x - do not launch me
         target_project: ${job.project}
-      description: param error
-      errorhandler:
-        configuration:
-          command: bash -c -- "echo job recovered"
-        keepgoingOnSuccess: true
-        nodeStep: true
-        type: localexec
+      description: dep hardlink - timeout
       nodeStep: false
       type: dependencies-wait_job
     - configuration:
@@ -40,4 +36,4 @@
       type: localexec
     keepgoing: false
     strategy: node-first
-  uuid: 6aff5e24-7c31-48f1-9f62-d9098fb17a17
+  uuid: edd40f16-f82a-4b4d-8a80-4680465b3c42

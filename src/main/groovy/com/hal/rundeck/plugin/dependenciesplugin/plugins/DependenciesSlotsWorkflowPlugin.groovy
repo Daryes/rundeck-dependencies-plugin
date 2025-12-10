@@ -79,12 +79,12 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * ref : https://docs.groovy-lang.org/3.0.17/html/documentation/#_java_style_array_initialization
     */
 
-    // for an absurd reason Groovy casts the array [ "1", "2", ... "5"] as java.lang.object
+    // for an absurd reason Groovy casts the array [ "1", "2", ... "5"] content as java.lang.object
     // => use directly static values in the annotation
 
     // Reference list of the slots per projects and the active jobs
     // structure is HashMap("project name", HashMap(slot number, (ArrayList("exec id number") ) ) )
-    static HashMap<String,HashMap> aSlotsReference = Collections.synchronizedMap( new HashMap<>() )
+    static HashMap<String,HashMap> aSlotsReference = Collections.synchronizedMap( new HashMap<>() )    // codenarc-disable-line ExplicitHashMapInstantiation, ImplementationAsType
 
 
     // #############################################################################################
@@ -201,7 +201,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
                     break
 
                 } else if (! bLoopOnetimeMsgSlotFull) {
-                    this.loggerNotice("Notice: Slot " + sPropTargetSlot + " has reached its capacity for the project '" + sPropTargetProject + "' - waiting ..." )
+                    this.loggerNoticeWithTime("Notice: Slot " + sPropTargetSlot + " has reached its capacity for the project '" + sPropTargetProject + "' - waiting ...", ":" )
                     bLoopOnetimeMsgSlotFull = true
                 }
             }
@@ -211,9 +211,9 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
         }
 
         // verify the force launch and last test for the dependency state
-        this.loopEndForceLaunchAndResolvedFinalTest("no opening available in the selected '" + sPropTargetSlot + "' slot limit")
+        this.executeStepFinalizeAndForceLaunch("no opening available in the selected '" + sPropTargetSlot + "' slot limit")
 
-        // registering this execution into the slot common reference for other jobs
+        // ensure this execution is registered into the slot common reference for other jobs before exiting
         if ( this.bThisFlowDepResolved ) {
             synchronized ( aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot) ) {
                 if ( ! aSlotsReference.get(sPropTargetProject).get(nPropTargetSlot).contains( sThisExecutionId ) ) {
@@ -231,17 +231,17 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * add to the slot reference variable the current project structure if missing
     */
     private void initSlotReferenceForProject( String sProjectName, short nSlotNumber ) {
-        if (DEBUG) { System.err.println("plugin:initSlotReferenceForProject: project '" + sProjectName + "' with slot " + String.valueOf( nSlotNumber ) + " ...") }
+        this.logDebug("plugin:initSlotReferenceForProject: project '" + sProjectName + "' with slot " + String.valueOf( nSlotNumber ) + " ...")
 
         synchronized ( aSlotsReference ) {
             if ( ! aSlotsReference.containsKey( sProjectName ) ) {
-                aSlotsReference.put( sProjectName, Collections.synchronizedMap( new HashMap<short,ArrayList>() ) )
+                aSlotsReference.put( sProjectName, Collections.synchronizedMap( new HashMap<short,ArrayList>() ) )    // codenarc-disable-line ExplicitHashMapInstantiation
             }
         }
 
         synchronized ( aSlotsReference.get( sProjectName ) ) {
             if ( ! aSlotsReference.get( sProjectName ).containsKey( nSlotNumber ) ) {
-                aSlotsReference.get( sProjectName ).put( nSlotNumber, Collections.synchronizedList( new ArrayList<String>() ) )
+                aSlotsReference.get( sProjectName ).put( nSlotNumber, Collections.synchronizedList( new ArrayList<String>() ) )    // codenarc-disable-line ExplicitArrayListInstantiation
             }
         }
     }
@@ -255,14 +255,14 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @return : the execution definition as object
     */
     private ExecutionReference rdJob_GetObjFromExecId(JobService oJobSvc, String sTargetProjectName, String sTargetExecId) {
-        if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromExecId: search for '" + sTargetExecId + "' in '" + sTargetProjectName + "'  ...") }
+        this.logDebug("plugin:rdJob_GetObjFromExecId: search for '" + sTargetExecId + "' in '" + sTargetProjectName + "'  ...")
 
         try {
             return oJobSvc.executionForId(sTargetExecId, sTargetProjectName);
         }
         catch (ExecutionNotFound e) {
-            if (DEBUG) { System.err.println("plugin:rdJob_GetObjFromExecId: target execution '" + sTargetExecId + "' was not found in the project '" + sTargetProjectName + "' => recovering ...") }
-            return null;
+            this.logDebug("plugin:rdJob_GetObjFromExecId: target execution '" + sTargetExecId + "' was not found in the project '" + sTargetProjectName + "' => recovering ...")
+            return null;        // codenarc-disable-line ReturnNullFromCatchBlock
         }
     }
 
@@ -278,49 +278,48 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     */
     private void slotExecutionListValidateAllStatuses(JobService oJobSvc, String sTargetProject, short nTargetSlot) {
         ExecutionReference oTargetJobExec
-        ArrayList<String> aLstToRemove = new ArrayList<String>()
+        ArrayList<String> aLstToRemove = new ArrayList<String>()    // codenarc-disable-line ExplicitArrayListInstantiation, ImplementationAsType
 
-        // not working : a copy is made, instead of a direct reference to the slot array => keep using the full path
+        // this will not work : a copy of the object is made instead of a direct reference to the slot array => keep using the full object path for aSlotsRef...get(targetSlot)
         // ArrayList<String> aTemp = aSlotsReference.get(sTargetProject).get(nTargetSlot)
 
-        if (DEBUG) {
-            System.err.println("plugin:slotExecutionListValidateAllStatuses: project " + sTargetProject + " / slot '" + String.valueOf(nTargetSlot) + "' ..." )
-            System.err.println("plugin:slotExecutionListValidateAllStatuses: number of execution in the slot before validation : " +
-                                aSlotsReference.get(sTargetProject).get(nTargetSlot).size().toString() )
-        }
+        this.logDebug("plugin:slotExecutionListValidateAllStatuses: project " + sTargetProject + " / slot '" + String.valueOf(nTargetSlot) + "' ..." )
+        this.logDebug("plugin:slotExecutionListValidateAllStatuses: number of execution in the slot before validation : " +
+                        aSlotsReference.get(sTargetProject).get(nTargetSlot).size().toString() )        // codenarc-disable-line UnnecessaryToString
 
-        // synchronize is required for a thread safe list/map
+
+        // synchronized is required for a thread safe list/map
         synchronized ( aSlotsReference.get(sTargetProject).get(nTargetSlot) ) {
             if (aSlotsReference.get(sTargetProject).get(nTargetSlot).size() == 0 ) { return }
 
             // loop and remove all finished executions
             // as the remove and the loop are applied over the same object, this must be splitted in 2 times using an intermediate variable
             for (String sTargetExecId : aSlotsReference.get(sTargetProject).get(nTargetSlot) ) {
-                if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses:loop: validate execution '" + sTargetExecId + "' ..." ) }
+                this.logDebug("plugin:slotExecutionListValidateAllStatuses:loop: validate execution '" + sTargetExecId + "' ..." )      // codenarc-disable-line DuplicateStringLiteral
 
                 oTargetJobExec =  rdJob_GetObjFromExecId( oJobSvc, sTargetProject, sTargetExecId)
 
-                // if() splitted due to the debug messages
+                // the if() are splitted due to the debug messages
                 if ( ! oTargetJobExec ) {
-                    if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses:loop: execution " + sTargetExecId + " not found - removing") }
+                    this.logDebug("plugin:slotExecutionListValidateAllStatuses:loop: execution " + sTargetExecId + " not found - removing")     // codenarc-disable-line DuplicateStringLiteral
                     aLstToRemove.add( sTargetExecId )
                     continue
                 }
 
-                // shouldn't be required, but many properties can be with inappropriate types or values or even null in some cases
+                // shouldn't be required, but many properties of the Rundeck job object can be with inappropriate types or values or even null in some cases
                 if (DEBUG) { this.debug_ExecutionReferenceInfos("plugin:rdJob_GetObjFromExecId: ", oTargetJobExec) }
 
-                if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses:loop: execution '" + sTargetExecId + "' with status '" + oTargetJobExec.getStatus() + "' found") }
+                this.logDebug("plugin:slotExecutionListValidateAllStatuses:loop: execution '" + sTargetExecId + "' with status '" + oTargetJobExec.getStatus() + "' found")
 
-                // ExecutionReference.getStatus() can be null when the state is "running" ... don't ask
+                // ExecutionReference.getStatus() can be null when the state is "running" - issue #9290
                 if ( oTargetJobExec.getStatus() && oTargetJobExec.getStatus().equalsIgnoreCase( String.valueOf(ExecutionState.RUNNING) ) == false ) {
-                    if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses:loop: execution '" + sTargetExecId + "' is finished - removing") }
+                    this.logDebug("plugin:slotExecutionListValidateAllStatuses:loop: execution '" + sTargetExecId + "' is finished - removing")     // codenarc-disable-line DuplicateStringLiteral
                     aLstToRemove.add( sTargetExecId )
                 }
             }
 
             if (aLstToRemove.size() > 0) {
-                if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses:toRemove: applying the removal ...") }
+                this.logDebug("plugin:slotExecutionListValidateAllStatuses:toRemove: applying the removal ...")
                 try {
                     aSlotsReference.get(sTargetProject).get(nTargetSlot).removeAll( aLstToRemove )
                 }
@@ -331,15 +330,15 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
             }
         }
 
-        if (DEBUG) { System.err.println("plugin:slotExecutionListValidateAllStatuses: remaining number of executions after validation : " +
-                                        aSlotsReference.get(sTargetProject).get(nTargetSlot).size().toString() ) }
+        this.logDebug("plugin:slotExecutionListValidateAllStatuses: remaining number of executions after validation : " +
+                        aSlotsReference.get(sTargetProject).get(nTargetSlot).size().toString() )        // codenarc-disable-line UnnecessaryToString
 
         oTargetJobExec = aLstToRemove = null
     }
 
 
     /**
-    * @TODO : add support for global slots onver all projects
+    * @TODO : add support for global slots over all projects
 
     * find all running executions
     * ref: https://javadoc.io/static/org.rundeck/rundeck-core/5.0.1-20240115/com/dtolabs/rundeck/core/jobs/JobService.html
@@ -348,7 +347,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @return : list of the execution definition
 
     private def rdJob_GetAllRunningExecutions(JobService oJobSvc, String sTargetProjectName) {
-        if (DEBUG) { System.err.println("plugin:rdJob_GetAllRunningExecutions: search in project '" + sTargetProjectName +"'  ...") }
+        this.logDebug("plugin:rdJob_GetAllRunningExecutions: search in project '" + sTargetProjectName +"'  ...")
 
         // given executionForId() requiring a project name => go for queryExecutions()
 
@@ -363,7 +362,7 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
             oQueryResult = oJobSvc.queryExecutions( [projFilter: sTargetProjectName, statusFilter: ExecutionState.RUNNING, jobonly: true, offset: 0, max: 0] )
         }
 
-        if (DEBUG) { System.err.println("plugin:rdJob_GetAllRunningExecutions: search result total : " + String.valueOf(oQueryResult.total) ) }
+        this.logDebug("plugin:rdJob_GetAllRunningExecutions: search result total : " + String.valueOf(oQueryResult.total) )
 
         if (oQueryResult.total == 0) { return null; }
         return oQueryResult.result;

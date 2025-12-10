@@ -58,7 +58,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
 
     public static final String PLUGIN_NAME = "dependencies-wait_file"
     public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / file"
-    public static final String PLUGIN_DESCRIPTION = "Wait for a file in a given directory on or from the Rundeck server."
+    public static final String PLUGIN_DESCRIPTION = "Wait for a file in a given directory on a remote server or the Rundeck server."
 
     /**
     * Many problems to use constants in annotation with {} in the same class
@@ -176,7 +176,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         // ref: https://github.com/rundeck-plugins/job-state-plugin/blob/master/src/main/java/org/rundeck/plugin/jobstate/JobStateWorkflowStep.java
         // ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
 
-        HashMap<short,String> HASH_CMD_LIST = new HashMap<>()
+        HashMap<short,String> HASH_CMD_LIST = new HashMap<>()    // codenarc-disable-line ExplicitHashMapInstantiation, ImplementationAsType
         HASH_CMD_LIST.put(5, "sum -r")       // BSD algorithm
         HASH_CMD_LIST.put(9, "cksum")        // CRC
         HASH_CMD_LIST.put(32, "md5sum")
@@ -197,6 +197,9 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
 
         String sTargetHostConnect = ""
         String sTargetHostMsg = ""
+
+        // information messages in the main loop
+        Boolean bLoopOnetimeMsgFileFound = false
 
         // init execution context variables
         this.initExecutionContext(PLUGIN_NAME, context)
@@ -250,14 +253,14 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         // update the configuration for a remote host
         if (sPropTargetHost.toLowerCase() != JOBDEPS_PROP_HOST_LOCAL &&  sPropTargetHost.toLowerCase() != JOBDEPS_PROP_HOST_LOCALHOST) {
             sTargetHostConnect = SSH_CMD_BASE + " " + sPropTargetHost + " -- "
-            sTargetHostMsg = "on " + sPropTargetHost + " "
+            sTargetHostMsg = " on " + sPropTargetHost
 
             // increase the sleep duration for remote usage
             this.nflowLoopSleepDurationFinal = this.nflowLoopSleepSlowerDurationFinal
         }
 
         // validate the access and find command presence - output is unused as an error wll be raised if it does not work
-        this.loggerNotice("Validating shell access " + sTargetHostMsg + "..." )
+        this.loggerNotice("Validating shell access" + sTargetHostMsg + " ..." )
         DepsHelper.shellExec( sTargetHostConnect + " command -v find" )
 
 
@@ -280,18 +283,23 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
             if ( sCmdOutputFile.length() > 0 ) {
                 // flag is requested, wait for it
                 if (bPropTargetHasFlag) {
-                    this.loggerNotice("Target file found " + sTargetHostMsg + ": '" + sCmdOutputFile + "' - looking for flag file ...")
+                    // print only one time the file found message as the transfer might not be yet finished
+                    if ( ! bLoopOnetimeMsgFileFound ) {
+                        this.loggerNoticeWithTime("Target file found" + sTargetHostMsg + ": '" + sCmdOutputFile + "' - looking for flag file ...", ":")
+                        bLoopOnetimeMsgFileFound = true
+                    }
+
                     sCmdOutputFlag = DepsHelper.shellExec( sTargetHostConnect + " find '" + sPropTargetDirectory + "' -maxdepth 1 -name '" + sTargetFlagFilename + "' -type f 2>/dev/null" )
 
                     if ( sCmdOutputFlag.length() > 0 ) {
-                        this.loggerNotice("Target flag found " + sTargetHostMsg + ": '" + sCmdOutputFlag + "' - validation ...")
+                        this.loggerNoticeWithTime("Target flag found" + sTargetHostMsg + ": '" + sCmdOutputFlag + "' - validation ...", ":")
                         this.bThisFlowDepResolved = true
                         break
                     }
 
                 // flag is not used  => exit
                 } else {
-                    this.logFinishMessage("Target file found " + sTargetHostMsg + ": '" + sCmdOutputFile + "' => success")
+                    this.logFinishMessage("Target file found" + sTargetHostMsg + ": '" + sCmdOutputFile + "' => success")
                     this.bThisFlowDepResolved = true
                     break
                 }
@@ -306,7 +314,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         if ( this.bThisFlowDepResolved && bPropTargetHasFlag ) {
             this.loggerNotice("")
 
-            if ( ! bPropTargetFlagVerifyHash ) {
+            if ( ! bPropTargetFlagVerifyHash ) {        // codenarc-disable-line  InvertedIfElse
                 this.logFinishMessage("Usage of the flag file content is not active, the received file will not be validated => success")
 
             // verifiy the file with the flag content
@@ -333,7 +341,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
                     this.logFinishMessage("The received flag file has no usable content, this will be ignored => success")
 
                 } else {
-                    this.loggerNotice("Processing hash found in '" + sCmdOutputFlag + "' ...")
+                    this.loggerNoticeWithTime("Processing: hash found in '" + sCmdOutputFlag + "' ...", ":")
 
                     if ( ! HASH_CMD_LIST.containsKey( sCmdFlagContent.length() ) ) {
                         System.err.println("plugin:loop:hash: no hash method suitable for the extracted hash with " + sCmdFlagContent.length().toString() +
@@ -351,7 +359,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
                     try {
                         sFileHash = DepsHelper.shellExec( sTargetHostConnect + " " + sFlagBinary + " " + sCmdOutputFlag )
                     } catch (Exception e) {
-                        System.err.println("Error: could not validate the file " + sTargetHostMsg + ": '" + sCmdOutputFlag + "'")
+                        System.err.println("Error: could not validate the file" + sTargetHostMsg + ": '" + sCmdOutputFlag + "'")
                         System.err.println("with the received hash : " + sCmdFlagContent)
                         throw e
                     }
@@ -375,6 +383,6 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
 
 
         // verify the force launch and last test for the dependency state
-        this.loopEndForceLaunchAndResolvedFinalTest("no file found " + sTargetHostMsg + ": '" + sPropTargetFile + "'")
+        this.executeStepFinalizeAndForceLaunch("no file found" + sTargetHostMsg + ": '" + sPropTargetFile + "'")
     }
 }

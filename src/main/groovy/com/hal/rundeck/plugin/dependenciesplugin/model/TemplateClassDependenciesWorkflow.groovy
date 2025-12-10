@@ -76,7 +76,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     // public static final String PLUGIN_DESCRIPTION = "FILL ME"
     // => also : build.gradle => pluginClassNames needs also to be filled with the new plugin name
 
-    Boolean DEBUG = false
+    Boolean DEBUG = false        // codenarc-disable-line PropertyName
 
     // current execution elements
     ExecutionListener logger
@@ -193,8 +193,8 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws StepException {
         // ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
 
-        initExecutionContext();
         loggerNotice("plugin:executeStep: empty function - this should not happen")
+        initExecutionContext("templateClass", context);
     }
 
     // #############################################################################################
@@ -228,19 +228,6 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
 
     /**
-    * Show environment and known properties - only if debug is active => in this class <=
-    */
-    void showEnvironmentAndProperties() {
-        if ( DEBUG ) {
-            System.err.println("Class DEBUG is active")
-            System.getenv().forEach((k, v) -> { System.err.println("envir: " + k + "=" + v); });
-            System.getProperties().forEach((k, v) -> { System.err.println("system props: " + k + "=" + v); });
-            oDepsHelperProps.debugPrintAllProps()
-        }
-    }
-
-
-    /**
     * Manage values from the extra parameters - command line behavior from the previous version <br />
     * A value from the extra param has the priority over a UI value
     */
@@ -267,8 +254,12 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         nflowLoopSleepSlowerDurationFinal = oPropExtraParams.get("sleep_slower_duration") ?: oDepsHelperProps.getPropFlowLoopSleepSlowerDurationSec()
     }
 
+
+    /**
+    * Clear the variables of the cmdline properties when they are not used anymore
+    * @require initPropertiesFinalValueFromCmdLineCleanup
+    */
     void initPropertiesFinalValueFromCmdLineCleanup() {
-        // no more use
         oPropExtraParams.clear()
         oPropExtraParams = oDepsHelperProps = null
     }
@@ -280,7 +271,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     */
     void initWorkflowDateTimeSettings() {
         // ref : https://groovy.apache.org/blog/groovy-dates-and-times-cheat
-        if ( DEBUG ) { System.err.println("plugin:initWorkflowDateTimeSettings:parsing workflow ZonedDateTime ...") }
+        logDebug("plugin:initWorkflowDateTimeSettings:parsing workflow ZonedDateTime ...")
 
         dTimeFlowStarted            = ZonedDateTime.now()
         nTimeFlowStartedEpoch       = dTimeFlowStarted.toEpochSecond()
@@ -290,11 +281,59 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
 
     /**
+    * Show environment and known properties - only if debug is active => in this class <=
+    */
+    void showEnvironmentAndProperties() {
+        if ( DEBUG ) {
+            logDebug("Class level DEBUG is active")
+            System.getenv().forEach((k, v) -> { logDebug("envir: " + k + "=" + v); } );
+            System.getProperties().forEach((k, v) -> { logDebug("system props: " + k + "=" + v); } );
+            oDepsHelperProps.debugPrintAllProps()
+        }
+    }
+
+
+    /**
     * output to logger object as notice message
     */
     void loggerNotice(final String sText) {
         // log levels : 0=Error, 1=Warning, 2=Notice; 3=Info, 4=Debug  with 3 and 4 visible only with "Run with Debug Output"=on
         logger.log(2, sText)
+    }
+
+
+    /**
+    * same as loggerNotice with the current date/time inserted as a suffix
+    */
+    void loggerNoticeWithDateTime(String sText) {
+        String sRet = sText + " (" + DepsHelper.dateNowPrettyPrint() + ")"
+        loggerNotice( sRet.trim() )
+    }
+
+
+    /**
+    * same as loggerNotice with the current time inserted before the first string or as a suffix when empty
+    */
+    void loggerNoticeWithTime(String sText, String sInsertBeforeFirstString) {
+        String sDateTimeNow = "(" + DepsHelper.dateNowTimePrint() + ")"
+        String sRet = ""
+
+        if ( sInsertBeforeFirstString.length() == 0) {
+            sRet = sText + " " + sDateTimeNow
+        } else {
+            // replaceFirst() allows regex
+            sRet = sText.replaceFirst(sInsertBeforeFirstString, " " + sDateTimeNow + " " + sInsertBeforeFirstString)
+        }
+
+        loggerNotice( sRet.trim() )
+    }
+
+
+    /**
+    * loggerNoticeWithTime() set as a suffix
+    */
+    void loggerNoticeWithTime(String sText) {
+        loggerNoticeWithTime(sText, "")
     }
 
 
@@ -314,11 +353,20 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     }
 
 
+    void logDebug(final String sText) {
+        if ( !DEBUG ) { return }
+        System.err.println(sText)
+    }
+
     /**
     * show the execution banner on the logger
     */
     void logBanner(final String sPluginName) {
-        if ( DEBUG ) { loggerWarn("Debug mode active !"); System.err.println("plugin:executeStep:banner:print informations ...") }
+        if ( DEBUG ) {
+            loggerWarn("Debug mode active !")
+            logDebug("Java version: " + DepsHelper.getJavaVersion() )
+            logDebug("plugin:executeStep:banner:print informations ...")
+        }
 
         loggerNotice("MODULE: " + sPluginName.toUpperCase().replace("-", " ") )
         loggerNotice("Package version: " + getClass().getPackage().getImplementationVersion() )
@@ -328,7 +376,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         logBannerTitleLineFormat("FLOW START", dTimeFlowDailyStart.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
         logBannerTitleLineFormat("FLOW END", dTimeFlowDailyEnd.format( DateTimeFormatter.RFC_1123_DATE_TIME ) )
         if ( Short.compare(nflowLoopSleepDurationFinal, DepsConstants.flowLoopSleepDurationSec) != 0 ) {
-            logBannerTitleLineFormat("PAUSE DURATION", String.valueOf(DepsHelper.flowLoopSleepDurationSec) + "s" )
+            logBannerTitleLineFormat("FLOW sleep duration", String.valueOf(nflowLoopSleepDurationFinal) + "s" )
         }
     }
 
@@ -339,9 +387,10 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * @param sDescription : the description for the title
     */
     void logBannerTitleLineFormat(String sTitle, String sDescription) {
-        if (sTitle.trim().substring(sTitle.length() - 1) != ":") { sTitle = sTitle.trim() + ":" }
+        if (sTitle.trim().substring(sTitle.length() - 1) != ":") { sTitle = sTitle.trim() + ":" }       // codenarc-disable-line ParameterReassignment
         loggerNotice( String.format("%-24s %s", sTitle, sDescription) )
     }
+
 
     /**
     * output a title line in the banner for the "force_launch" parameter
@@ -350,13 +399,14 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         logBannerTitleLineFormat("Force launch on timeout", bPropFlowForceLaunch.toString() )
     }
 
+
     /**
     * show extra informations at the end of the banner
     */
     void logBannerBottomConfigInfo(final Map<String, Object> oConfig ) {
         loggerNotice(DepsConstants.stdout_line )
         logBannerTitleLineFormat("Started at", dTimeFlowStarted.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) )
-        logBannerTitleLineFormat("Exec #ID", sThisExecutionId )
+        logBannerTitleLineFormat("Execution #ID", sThisExecutionId )
         loggerNotice(DepsConstants.stdout_line )
 
         if (DEBUG) {
@@ -389,11 +439,9 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * Slight sleep before starting then print the loop duration and skip filename
     */
     void sleepBeforeLoopAndSkipMsg() {
+        logDebug("plugin:executeStep:loop:skipping the " + String.valueOf( nStartDelaySleepSec ) + "s pause before the waiting loop due to the activation of the debug mode ...")
         // wait before starting anything to let the jobs setting in
-        if ( DEBUG ) {
-            System.err.println("plugin:executeStep:loop:skipping the " + String.valueOf( nStartDelaySleepSec ) + "s pause before the waiting loop due to debug activated ...")
-
-        } else if (nStartDelaySleepSec > 0) {
+        if ( !DEBUG && nStartDelaySleepSec > 0) {
             DepsHelper.waiting( nStartDelaySleepSec * 1000 )
         }
 
@@ -412,14 +460,14 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     Boolean searchForSkipfile() {
         Boolean bRet = false
 
-        if ( DEBUG ) { System.err.println("\nplugin:executeStep:loop:new pass starting...") }
+        logDebug("\nplugin:executeStep:loop:new pass starting...")
 
         if ( DepsHelper.timeFlowDaily_skipFileExists(logger, sThisFlowSkipfile ) ) {
             bThisFlowDepResolved = true
             bRet = true
         }
 
-        if ( DEBUG ) { System.err.println("plugin:executeStep:loop:searchForSkipfile: skip file status : " + String.valueOf(bThisFlowDepResolved) ) }
+        logDebug("plugin:executeStep:loop:searchForSkipfile: skip file status : " + String.valueOf(bThisFlowDepResolved) )
 
         return bRet
     }
@@ -432,7 +480,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     Boolean loopSleepAndVerifyDurationLimit() {
         Boolean bRet = false
         // Wait
-        if (DEBUG) { System.err.println("plugin:executeStep:loop:sleeping ...") }
+        logDebug("plugin:executeStep:loop:sleeping ...")
         DepsHelper.timeFlowDaily_sleep( logger, nflowLoopSleepDurationFinal, nWaitSecJitter, dTimeFlowStarted)
 
         // activate if the flow ending limit or the max wait duration is reached
@@ -442,21 +490,25 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         return bRet
     }
 
+
     /**
     * verify at the end of the flow if force launch is activated and set the resolved status <br/>
     * then verify the resolved final status and throws a StepException if not resolved
     * @param sMsgForNoDepResolved : additional information to the abort message if the dependency was not resolved
     */
-    void loopEndForceLaunchAndResolvedFinalTest(String sMsgForNoDepResolved) throws StepException {
-        if ( bPropFlowForceLaunch && ! bThisFlowDepResolved ) {
+    void executeStepFinalizeAndForceLaunch(String sMsgForNoDepResolved) throws StepException {
+        if ( bPropFlowForceLaunch && !bThisFlowDepResolved ) {
             logFinishMessage("Timeout reached (" + DepsHelper.formatElapsedTime(nPropMaxWaitSecFinal, true) + ") or the flow ended AND forced execution active => success" )
             bThisFlowDepResolved = true
         }
 
-        if ( ! bThisFlowDepResolved ) {
+        if ( !bThisFlowDepResolved ) {
+            // ref: https://github.com/rundeck/rundeck/blob/main/rundeckapp/grails-app/jobs/rundeck/quartzjobs/ExecutionJob.groovy
+            // it seems it is not possible to set a proper timeout directly, the running context must be updated directly by updating "<RunContext> runContext.timeout = 1"
+            // TODO: see if "<PluginStepContext> context.getFlowControl().Halt(statusString)" is not better suited
             throw new StepException(
                 "Timeout reached and " + sMsgForNoDepResolved + " => abort\n(" + DepsHelper.dateNowPrettyPrint() + ")",
-                PluginFailureReason.Timeout
+                PluginFailureReason.TimedOut
             )
         }
     }
@@ -473,7 +525,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
     void logFinishMessage(String sFinalMessage, Boolean bDecorate) {
         if (sFinalMessage.trim().length() > 0) { loggerNotice(sFinalMessage) }
-        loggerNotice("(" + DepsHelper.dateNowPrettyPrint() + ")" )
+        loggerNoticeWithDateTime("")        // print only the date/time
         if (bDecorate) { loggerNotice(DepsConstants.stdout_line_hash) }
     }
 
@@ -486,7 +538,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         // ref : https://javadoc.io/doc/org.rundeck/rundeck-core/latest/com/dtolabs/rundeck/core/execution/ExecutionReference.html
         // ref : https://github.com/rundeck/rundeck/blob/main/grails-rundeck-data-shared/src/main/groovy/rundeck/data/util/ExecutionDataUtil.groovy
 
-        System.err.println(sMessagePrefix + "Job execution found : " +
+        logDebug(sMessagePrefix + "Job execution found : " +
             "[" + oTargetJobExecRef.getClass().getName() + "] " +
            "getId(" + oTargetJobExecRef.getId() + ")[" + oTargetJobExecRef.getId().getClass().getName() + "] -* " +
            // should not be "null" when the execution is still running
@@ -518,7 +570,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         // no override allowed
         if ( oCli ) { return }
 
-        if ( DEBUG ) { System.err.println("plugin:cliParamInit:build cli list ...") }
+        logDebug("plugin:cliParamInit:build cli list ...")
 
         // the CliBuilder "aliases" property is not yet supported
         oCli = new CliBuilderInternal(name: PLUGIN_NAME).tap {
