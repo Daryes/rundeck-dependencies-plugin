@@ -16,6 +16,41 @@ Notice : this module can only works on Linux systems, or anything supporting at 
 The `coreutils` package is also required on the target system, if the checksum validation is used.
 
 
+### Execution output
+
+Example :  
+
+```
+MODULE: DEPENDENCIES WAIT_FILE
+------------------------------------------------------------
+FLOW START:              Mon, 14 May 2025 15:00:00 +0200
+FLOW END:                Tue, 15 May 2025 14:59:59 +0200
+FILE host:               'simulator'
+FILE directory:          '/tmp'
+FILE name:               'rundeck_deps_wait_file_hash.test'
+FILE flag:               'rundeck_deps_wait_file_hash.test_flag'
+Flag hash validation:    true
+Force launch on timeout: false
+------------------------------------------------------------
+Started at:              2025-05-15T05:30:00.93836+02:00
+Execution #ID:           83419
+------------------------------------------------------------
+Validating shell access on simulator ...
+
+Waiting loop started (each 180s for 12h00m00s or until the flow's ending time) ...
+To exit this loop, run this shell command on the Rundeck host : sudo su rundeck -c 'touch /tmp/rundeck/dependencies-wait_file.skip.83419.2'
+
+Target file found on simulator (05:39:12) : '/tmp/rundeck_deps_wait_file_hash.test' - looking for flag file ...
+Target flag found on simulator (05:39:12) : '/tmp/rundeck_deps_wait_file_hash.test_flag' - validation ...
+
+Processing (05:39:13) : hash found in '/tmp/rundeck_deps_wait_file_hash.test_flag' ...
+Related binary detected for hash verification : sha1sum
+Target file hash is valid: 74df5fa1522875f200c0198f8d32bcaec17ab790 => success
+(2025-05-15T05:39:13.973294+02:00)
+############################################################
+```
+
+
 ### Step settings
 ------
 

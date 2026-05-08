@@ -1,19 +1,25 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 /**
 *  Constant variables common to the Dependencies plugins
 */
-@SuppressWarnings('FieldName')
+@SuppressWarnings(['FieldName', 'UnsafeArrayDeclaration'])
 @groovy.transform.CompileStatic
 class DepsConstants {
 
+    private DepsConstants() { }    // no instance
+
     /**
-    * jobs status
+    * jobs status OK
     * <br/>ref: https://docs.rundeck.com/docs/api/#executions
     * @TODO: use instead rundeck's own "ExecutionConstants" definitions
     */
     public static final String[] jobState_ok = [ "ok", "success", "succeeded" ]
+    // jobs status KO
     public static final String[] jobState_ko = [ "ko", "error", "failed", "aborted", "timedout", "timeout", "other" ]
+    // jobs status ignore
     public static final String[] jobState_ignore = [ "running", "failed-with-retry", "scheduled" ]
 
     /**
@@ -21,7 +27,9 @@ class DepsConstants {
     */
     public static final String stdout_line =      "------------------------------------------------------------"
     public static final String stdout_line_hash = "############################################################"
+    // time format using ":"
     public static final String timeDurationFormatColon = "%2d:%02d:%02d"
+    // time format using "?h?m?s"
     public static final String timeDurationFormatHMS =   "%dh%02dm%02ds"
 
 
@@ -49,9 +57,9 @@ class DepsConstants {
     public static final String flowLoopSleepSlowerDurationPropertyName = "dependencies-waitfor.flow-sleep-slower-duration-sec"
 
     /**
-    * default flow start and end pivot time
+    * default pivot time the flow will start and end the next day
     */
-    public static final String flowDailyStartEndPivotTime = "15:00:00"
+    public static final String flowDailyStartEndPivotTime = "15:00:00"  // hh:mm:ss
     public static final String flowDailyStartEndPivotTimePropertyName = "dependencies-waitfor.flow-daily-start-end-pivot-time"
 
     /**

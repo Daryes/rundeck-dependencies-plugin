@@ -1,6 +1,31 @@
 Change history
 ======
 
+v3.0.0
+------
+- Module UI workflow: new module for a UI panel able to present an interactive workflow diagram of all the jobs in a selected project.
+- Module wait-for job : new "Halt" configuration option for stopping the current job in success when the target job is ended in the opposite state than expected.
+- All modules : the "maxWait" parameter has been integrated also as an option in the configuration panel under the "Dependency tuning" section.
+- All modules : updated some informational messages to be more explicit.
+- All modules : simplified some internal functions.
+- Readme: updated for the new plugin.
+- Gradle : configuration to support external libs as resources.
+- tests : some order change and ajustements to cover more case for the UI workflow module.
+- tests : new tests for the UI workflow module.
+- tests : new tests for the new options "Halt" and "maxWait".
+
+
+v2.1.3 (unreleased)
+------
+- All modules : the message "Notice: Still waiting after ... hours" will not print the date multiple times.
+- Minor fixes and comments
+
+
+v2.1.2 (unreleased)
+------
+- Gradle : the output directory for a release is now correctly using `build/release/` instead of `build/lib/`
+
+
 v2.1.1 (2025/12/07)
 ------
 - Readme: Java 17 is supported since v2.0 but was not specified in the readme.

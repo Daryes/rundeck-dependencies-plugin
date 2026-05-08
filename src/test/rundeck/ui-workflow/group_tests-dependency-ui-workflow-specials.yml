@@ -1,0 +1,198 @@
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: 8a3a9428-7876-4739-980e-a3c8f54dd99a
+  loglevel: INFO
+  name: Dependency - ui workflow - jobref (daily)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '11'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - jobref:
+          childNodes: true
+          group: tests-dependency-ui-workflow-specials
+          name: Dependency - ui workflow - jobref target (manual)
+          useName: 'true'
+          uuid: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+      - jobref:
+          childNodes: true
+          group: tests-dependency-ui-workflow-specials
+          name: Dependency - ui workflow - jobref unknown
+          useName: 'true'
+          uuid: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+      - jobref:
+          childNodes: true
+          failOnDisable: true
+          group: tests-dependency-jobs
+          name: Dependency - jobs - x - do not launch me
+          useName: 'true'
+          uuid: 0a386fd9-dde0-43ba-baa0-e10547d676f3
+    keepgoing: false
+    strategy: node-first
+  uuid: 8a3a9428-7876-4739-980e-a3c8f54dd99a
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: f5a95bd1-330c-42a7-ba62-24e1769e8d63
+  loglevel: INFO
+  name: Dependency - ui workflow - jobref error handler (daily)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '11'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          fail: 'true'
+          halt: 'false'
+          status: fail
+        errorhandler:
+          jobref:
+            group: tests-dependency-ui-workflow-specials
+            name: Dependency - ui workflow - jobref target (manual)
+            useName: 'true'
+            uuid: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+        nodeStep: false
+        type: flow-control
+    keepgoing: false
+    strategy: node-first
+  uuid: f5a95bd1-330c-42a7-ba62-24e1769e8d63
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: 820aeb8a-9c46-44d3-9bca-879448719c0f
+  loglevel: INFO
+  name: Dependency - ui workflow - jobref same (daily)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '11'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - jobref:
+          childNodes: true
+          group: tests-dependency-ui-workflow-specials
+          name: Dependency - ui workflow - jobref target (manual)
+          useName: 'true'
+          uuid: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+    keepgoing: false
+    strategy: node-first
+  uuid: 820aeb8a-9c46-44d3-9bca-879448719c0f
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+  loglevel: INFO
+  name: Dependency - ui workflow - jobref target (manual)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_project: ${job.project}
+          target_slot: '1'
+        description: slot
+        nodeStep: false
+        type: dependencies-wait_slot
+      - configuration:
+          command: exit 0
+        nodeStep: true
+        type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 290b8a9a-0dba-45d1-a64f-88d5fc13ffc2
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: 62cbf2e9-febd-47e6-b637-c1501080e986
+  loglevel: INFO
+  name: 'Dependency - ui workflow - schedule repetitive '
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: 0/5
+      minute: '0'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          command: exit 0
+        nodeStep: true
+        type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 62cbf2e9-febd-47e6-b637-c1501080e986
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-specials
+  id: 9d745ad0-4240-4040-abfa-fa69f158da99
+  loglevel: INFO
+  name: Dependency - ui workflow - schedule repetitive 2
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '*'
+      minute: 0/30
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          command: exit 0
+        nodeStep: true
+        type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 9d745ad0-4240-4040-abfa-fa69f158da99

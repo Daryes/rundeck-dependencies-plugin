@@ -1,0 +1,48 @@
+- defaultTab: nodes
+  description: Dependency on the sleep job with halt active and debug = ON
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: 9e233251-ac97-42dc-a1ef-3126fe56c7c7
+  loglevel: INFO
+  name: Dependency - jobs - 04 - dep on sleep with halt
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: 'name: localhost '
+  nodesSelectedByDefault: true
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+    value: -debug
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        halt_opposite_state: 'true'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 01 - sleep
+        target_project: ${job.project}
+      description: deps
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished and this message should not be visible"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: 9e233251-ac97-42dc-a1ef-3126fe56c7c7

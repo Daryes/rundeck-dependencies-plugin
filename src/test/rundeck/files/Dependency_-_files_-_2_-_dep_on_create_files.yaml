@@ -1,0 +1,63 @@
+- defaultTab: nodes
+  description: "Dependency on the create files job  \n1 : basic dep on file with no\
+    \ flag  \n2 : basic dep on file with flag without content validation  \n3 : dep\
+    \ on missing file with a timeout of 10 seconds + forced launch  \n\n"
+  executionEnabled: true
+  group: tests-dependency-files
+  id: f5c50799-a3a0-4b67-9b1a-f92a51f097ac
+  loglevel: INFO
+  name: Dependency - files - 2 - dep on create files
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'false'
+        flag_verify_hash: 'true'
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file_noflag.test
+        target_host: localhost
+      description: dep basic + no flag
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'true'
+        flag_verify_hash: 'false'
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file.test
+        target_host: localhost
+      description: dep basic + flag + no content
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        flag_ext: _flag
+        flag_type: 'false'
+        flag_verify_hash: 'true'
+        force_launch: 'true'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 10
+        target_directory: /tmp
+        target_file: rundeck_deps_wait_file.test.does.not.exists
+        target_host: localhost
+      description: dep missing + forced
+      nodeStep: false
+      type: dependencies-wait_file
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: f5c50799-a3a0-4b67-9b1a-f92a51f097ac

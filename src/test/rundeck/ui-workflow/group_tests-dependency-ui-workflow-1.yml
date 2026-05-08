@@ -1,0 +1,778 @@
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 2e952d09-ac5c-4b11-a6fe-dbfd0d10ce1a
+  loglevel: INFO
+  name: Dependency - ui workflow - file 1 (daily)
+  nodeFilterEditable: false
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '1'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+    keepgoing: false
+    strategy: node-first
+  uuid: 2e952d09-ac5c-4b11-a6fe-dbfd0d10ce1a
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 89cbbba4-38c7-4683-a843-2405ec8fcdbb
+  loglevel: INFO
+  name: Dependency - ui workflow - file 2 (daily)
+  nodeFilterEditable: false
+  notification:
+    onstart:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '2'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 1 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: 89cbbba4-38c7-4683-a843-2405ec8fcdbb
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 405e368d-1bfc-4931-9582-dadee68fd239
+  loglevel: INFO
+  name: Dependency - ui workflow - file 3 (daily)
+  nodeFilterEditable: false
+  notification:
+    onsuccess:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '3'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 2 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: 405e368d-1bfc-4931-9582-dadee68fd239
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 44f2155a-b969-47d5-9ee1-0229425f1a0b
+  loglevel: INFO
+  name: Dependency - ui workflow - file 4 (daily)
+  nodeFilterEditable: false
+  notification:
+    onfailure:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '4'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 3 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: 44f2155a-b969-47d5-9ee1-0229425f1a0b
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 1283a903-d293-4710-a394-fc4dc7632a9c
+  loglevel: INFO
+  name: Dependency - ui workflow - file 5 (daily)
+  nodeFilterEditable: false
+  notification:
+    onretryablefailure:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '5'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 4 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: 1283a903-d293-4710-a394-fc4dc7632a9c
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: 672048a1-9d14-4040-a273-485389d09609
+  loglevel: INFO
+  name: Dependency - ui workflow - file 6 (daily)
+  nodeFilterEditable: false
+  notification:
+    onavgduration:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '6'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 5 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: 672048a1-9d14-4040-a273-485389d09609
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: acb5be43-8883-4c72-a8af-59b125997b11
+  loglevel: INFO
+  name: Dependency - ui workflow - file 7 (daily)
+  nodeFilterEditable: false
+  notification:
+    onavgduration:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+    onfailure:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+    onstart:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+    onsuccess:
+      email:
+        attachType: file
+        recipients: nobody@localhost
+  notifyAvgDurationThreshold: null
+  options:
+    - description: Sequence number for the file name
+      hidden: true
+      label: Job index
+      name: idx
+      required: true
+      value: '7'
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - start (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_1
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'true'
+          force_launch: 'false'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_2
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          flag_ext: .flag
+          flag_type: 'true'
+          flag_verify_hash: 'false'
+          force_launch: 'true'
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          target_directory: /tmp
+          target_file: file_${option.idx}.step_3
+          target_host: localhost
+        nodeStep: false
+        type: dependencies-wait_file
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 6 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: acb5be43-8883-4c72-a8af-59b125997b11
+- defaultTab: nodes
+  description: ''
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: ef1fa6c4-3499-4b50-87e4-e6187f3396b4
+  loglevel: INFO
+  name: Dependency - ui workflow - file flag_end (daily)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '22'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 1 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 2 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 3 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 4 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 5 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 6 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+      - configuration:
+          force_launch: 'false'
+          node_filtering: adapt
+          optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+          softlink: -hardlink
+          status_job: success
+          target_group: ${job.group}
+          target_job: Dependency - ui workflow - file 7 (daily)
+          target_project: ${job.project}
+        nodeStep: false
+        type: dependencies-wait_job
+    keepgoing: false
+    strategy: node-first
+  uuid: ef1fa6c4-3499-4b50-87e4-e6187f3396b4
+- defaultTab: nodes
+  description: "Try to be an empty job, actually it is not possible currently due to this message:  \nError : Workflow must have at least one step"
+  executionEnabled: true
+  group: tests-dependency-ui-workflow-1
+  id: cd5f552b-45d0-49dd-a035-354bffcb2d26
+  loglevel: INFO
+  name: Dependency - ui workflow - start (daily)
+  nodeFilterEditable: false
+  plugins:
+    ExecutionLifecycle: {}
+  schedule:
+    month: '*'
+    time:
+      hour: '19'
+      minute: '00'
+      seconds: '0'
+    weekday:
+      day: '*'
+    year: '*'
+  scheduleEnabled: false
+  sequence:
+    commands:
+      - configuration:
+          command: exit 0
+        description: local
+        nodeStep: true
+        type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: cd5f552b-45d0-49dd-a035-354bffcb2d26

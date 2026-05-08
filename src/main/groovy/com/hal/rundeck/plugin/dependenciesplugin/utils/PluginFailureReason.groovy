@@ -1,5 +1,7 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepFailureReason
 
@@ -7,7 +9,7 @@ import com.dtolabs.rundeck.core.execution.workflow.steps.StepFailureReason
  * Lists the known reasons the plugins might fail.
  * ref: https://github.com/rundeck/rundeck/blob/main/core/src/main/java/com/dtolabs/rundeck/core/execution/workflow/steps/StepFailureReason.java
  */
-@SuppressWarnings('FieldName')
+@SuppressWarnings(['FieldName'])
 enum PluginFailureReason implements FailureReason {
 
     KeyStorageError,

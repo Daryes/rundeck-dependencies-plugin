@@ -116,7 +116,7 @@ ruleset {
     FieldTypeRequired 
     HashtableIsObsolete 
     IfStatementCouldBeTernary 
-    ImplicitClosureParameter 
+    // ImplicitClosureParameter 
     ImplicitReturnStatement 
     InvertedCondition 
     InvertedIfElse 
@@ -269,7 +269,7 @@ ruleset {
     ClosureAsLastMethodParameter 
     CollectAllIsDeprecated 
     ConfusingMultipleReturns 
-    ExplicitArrayListInstantiation 
+    // ExplicitArrayListInstantiation 
     ExplicitCallToAndMethod 
     ExplicitCallToCompareToMethod 
     ExplicitCallToDivMethod 
@@ -285,7 +285,7 @@ ruleset {
     ExplicitCallToPutAtMethod 
     ExplicitCallToRightShiftMethod 
     ExplicitCallToXorMethod 
-    ExplicitHashMapInstantiation 
+    // ExplicitHashMapInstantiation 
     ExplicitHashSetInstantiation 
     ExplicitLinkedHashMapInstantiation 
     ExplicitLinkedListInstantiation 

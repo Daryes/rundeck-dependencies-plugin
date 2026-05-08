@@ -1,6 +1,9 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 // External packages or modules dependencies
+// skip imports - CPD-OFF
 // base
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUPING
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUP_NAME
@@ -58,6 +61,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.lang.System;
 
+// CPD-ON
 
 /**
 * Module Template for dependencies Workflow plugins  <br />
@@ -67,16 +71,16 @@ import java.lang.System;
 * @PluginDescription(title = PLUGIN_TITLE, description = PLUGIN_DESCRIPTION) }
 * </pre>
 */
-@SuppressWarnings('ClassNameSameAsFilename')
-class DependenciesWorkflowTemplate implements StepPlugin {
+@SuppressWarnings(['ClassNameSameAsFilename', 'AbstractClassWithoutAbstractMethod'])
+abstract class DependenciesWorkflowTemplate implements StepPlugin {
 
     // Fill these variables and uncomment them for a new plugin
     // public static final String PLUGIN_NAME = "dependencies-wait_FILL ME"
     // public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / FILL ME"
     // public static final String PLUGIN_DESCRIPTION = "FILL ME"
-    // => also : build.gradle => pluginClassNames needs also to be filled with the new plugin name
+    // => also : build.gradle => pluginClassNames must also be updated with the new plugin name
 
-    Boolean DEBUG = false        // codenarc-disable-line PropertyName
+    Boolean DEBUG = false        // codenarc-disable-line PropertyName,FieldName
 
     // current execution elements
     ExecutionListener logger
@@ -113,18 +117,16 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     ZonedDateTime dTimeFlowDailyStart
     ZonedDateTime dTimeFlowDailyEnd
 
+    // PluginProperty Definitions #################################################################
+    // ref: https://docs.rundeck.com/docs/developer/02-plugin-annotations.html#plugin-properties
 
     /*
     * Many problems in groovy to use constants in annotation with {} in the same class
-    * declare value={...} with value=[ ... ] and might have to use protected instead of public
+    * declare value={...} with value=[ ... ] and might also have to use protected instead of public
     * ref : https://issues.apache.org/jira/browse/GROOVY-5776
     * ref : https://issues.apache.org/jira/browse/GROOVY-3278
     * ref : https://docs.groovy-lang.org/3.0.17/html/documentation/#_java_style_array_initialization
     */
-
-
-    // PluginProperty Definitions #################################################################
-    // ref: https://docs.rundeck.com/docs/developer/02-plugin-annotations.html#plugin-properties
 
     @PluginProperty(
         name = "force_launch",
@@ -139,30 +141,27 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     Boolean bPropForceLaunch;
 
 
-    /* disabled for compatibility with previous versions
-    * @PluginProperty(
-    *     name = "maxWait",
-    *     title = "Max wait duration",
-    *     description = "The duration in seconds before this step end with a timeout. Default value is " +
-    *                   DepsConstants.flowTimeoutDurationSecStringForAnnotations + " (" + DepsConstants.flowTimeoutDurationFormated + ").  \n" +
-    *                   "Reaching the current workflow end time will always raise a timeout, taking precedence over this setting.  \n" +
-    *                   "The old option '-maxWait ...' in the extra parameters field is also supported to change this value." ,
-    *     defaultValue = DepsConstants.flowTimeoutDurationSecStringForAnnotations,
-    *     required = true
-    * )
-    * @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "secondary") ])
-    * Integer nPropMaxWait;
-    */
+    @PluginProperty(
+        name = "maxWait",
+        title = "Max wait duration",
+        description = "The duration before this step ends with a timeout. Supported formats are either a number for the total time in seconds, or formatted as '??s' up to '??h??m??s'  \n" +
+                      "When empty or set to `-1`, it will default to " + DepsConstants.flowTimeoutDurationSecStringForAnnotations +
+                        " (" + DepsConstants.flowTimeoutDurationFormated + ").  \n" +
+                      "Reaching the current workflow end time will always raise a timeout, taking precedence over this setting.  \n" +
+                      "Can be combined with the parameter 'Force Launch'" ,
+
+        defaultValue = "",
+        // should be required but disabled for compatibility with previous versions
+        required = false
+    )
+    @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Dependency tuning"), @RenderingOption(key = GROUPING, value = "secondary") ])
+    String sPropMaxWait;
+
 
     @PluginProperty(
         name = "optional_params",
         title = "Extra parameters",
         description = "Additional parameters from this list:  \n" +
-                                    "- `-maxWait number`  \n" +
-                                    "  (alias: `-wait number`) Total wait duration in seconds before raising a timeout.  \n" +
-                                    "  Reaching the workflow global end time has precedence over this setting.  \n" +
-                                    "  Can be combined with the parameter 'Force Launch'\n" +
-
                                     "- `-nodefilter_regex 'my regex mask'`  \n" +
                                     "  Filter the target job execution only on the nodes selected by the regex mask  \n" +
                                     "  Requires the parameter 'Node filtering' set to the mode `regex`\n" +
@@ -170,6 +169,13 @@ class DependenciesWorkflowTemplate implements StepPlugin {
                                     "- `-skip`  \n" +
                                     "  (alias: `-bypass`) Ignore the target job status and exit this step immediately without error  \n" +
                                     "  This is usually for manual launches, when the dependency might not be desired.  \n" +
+
+                                    "- `-maxWait number`  \n" +
+                                    "  **DEPRECATED :** _use instead the dedicated option 'Max wait duration'_  \n" +
+                                    "  (alias: `-wait number`) Total wait duration in seconds before raising a timeout.  \n" +
+                                    "  It has priority over the dedicated option 'Max wait duration' for compatibility with older versions.  \n" +
+                                    "  Reaching the workflow global end time has precedence over this setting.  \n" +
+                                    "  Can be combined with the parameter 'Force Launch'\n" +
 
                                     "\n To use these dynamically at launch time, create an additional workflow option in this job named `DEPENDENCY_EXTRA_PARAMS` of string type, empty.  \n" +
                                     "This will allow at launch time to change some properties, even use the -skip parameter to disable the dependency steps.  \n" +
@@ -232,26 +238,27 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * A value from the extra param has the priority over a UI value
     */
     void initParseCommandLine() {
-        if ( DEBUG || sPropExtraParams.contains("-debug") ) { System.err.println("plugin:initExecutionContext:parsing command line ...") }
+        if ( DEBUG || sPropExtraParams.contains("-debug") ) { System.err.println("plugin:initParseCommandLine:parsing command line ...") }
 
         oPropExtraParams = DepsHelper.cliParamParse(sPropExtraParams)
         if ( oPropExtraParams.containsKey("debug") ) { DEBUG = true }
-    }
 
+        // set the final values from the PluginProperty parameters when defined
+        // adjust maxWaitFinal - maxWait cli has priority over maxWait UI option but the properties value must also be kept as default
+        nPropMaxWaitSecFinal = ([null, "", "-1"].contains(sPropMaxWait)) ? oDepsHelperProps.getPropFlowTimeoutDurationSec() : DepsHelper.durationConvertToSec(sPropMaxWait)
 
-    /**
-    * set the final values from the PluginProperty parameters when defined
-    * @require initParseCommandLine
-    */
-    void initPropertiesFinalValueFromCmdLine() {
         bPropFlowSkipDep            = oPropExtraParams.containsKey("skip")
         bPropFlowForceLaunch        = oPropExtraParams.get("force_launch") ?: bPropForceLaunch
-        nPropMaxWaitSecFinal        = oPropExtraParams.get("wait") ?: oDepsHelperProps.getPropFlowTimeoutDurationSec()
+        nPropMaxWaitSecFinal        = oPropExtraParams.get("wait") ?: nPropMaxWaitSecFinal
         sPropFlowDailyStart         = oPropExtraParams.get("flow_daily_start") ?: oDepsHelperProps.getPropFlowDailyStartTime()
         sPropFlowDailyEnd           = oPropExtraParams.get("flow_daily_end") ?: oDepsHelperProps.getPropFlowDailyEndTime()
         nStartDelaySleepSec         = oPropExtraParams.get("startup_delay") ?: nStartDelaySleepSec
         nflowLoopSleepDurationFinal = oPropExtraParams.get("sleep_duration") ?: oDepsHelperProps.getPropFlowLoopSleepDurationSec()
         nflowLoopSleepSlowerDurationFinal = oPropExtraParams.get("sleep_slower_duration") ?: oDepsHelperProps.getPropFlowLoopSleepSlowerDurationSec()
+
+        if (nPropMaxWaitSecFinal < 0 || nPropMaxWaitSecFinal == null) {
+            throw new StepException("Configuration error: The parameter 'Max wait duration' has an invalid value", PluginFailureReason.ConfigurationFailure)
+        }
     }
 
 
@@ -259,7 +266,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * Clear the variables of the cmdline properties when they are not used anymore
     * @require initPropertiesFinalValueFromCmdLineCleanup
     */
-    void initPropertiesFinalValueFromCmdLineCleanup() {
+    void initParseCommandLineCleanup() {
         oPropExtraParams.clear()
         oPropExtraParams = oDepsHelperProps = null
     }
@@ -358,6 +365,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         System.err.println(sText)
     }
 
+
     /**
     * show the execution banner on the logger
     */
@@ -404,10 +412,10 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * show extra informations at the end of the banner
     */
     void logBannerBottomConfigInfo(final Map<String, Object> oConfig ) {
-        loggerNotice(DepsConstants.stdout_line )
+        loggerNotice(DepsConstants.stdout_line)
         logBannerTitleLineFormat("Started at", dTimeFlowStarted.format( DateTimeFormatter.ISO_OFFSET_DATE_TIME ) )
         logBannerTitleLineFormat("Execution #ID", sThisExecutionId )
-        loggerNotice(DepsConstants.stdout_line )
+        loggerNotice(DepsConstants.stdout_line)
 
         if (DEBUG) {
             loggerWarn("Printing other configuration parameters (can be empty) ..." )
@@ -448,6 +456,7 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         loggerNotice("\nWaiting loop started (each " + String.valueOf(nflowLoopSleepDurationFinal) + "s for " + DepsHelper.formatElapsedTime(nPropMaxWaitSecFinal, true) +
                       " or until the flow's ending time) ..."
                   )
+        // alternate command : sudo install --owner rundeck  /dev/null  file.skip
         loggerNotice("To exit this loop, run this shell command on the Rundeck host : sudo su " + System.getProperty("user.name") + " -c 'touch " + sThisFlowSkipfile + "'" )
         loggerNotice("")
     }
@@ -492,6 +501,27 @@ class DependenciesWorkflowTemplate implements StepPlugin {
 
 
     /**
+    * Stop the execution flow of a job, all remaning steps are ignored
+    * This will not stop the current step which has to exit with "return"
+    * @param oStepContext : the plugin step context object
+    * @param sHaltExitState : the state used for halting the job flow, either "success" or "error"
+    */
+    void executeStepHaltJobFlow(final PluginStepContext oStepContext, final String sHaltExitState) throws StepException {
+        // ref: https://github.com/rundeck/rundeck/blob/main/plugins/flow-control-plugin/src/main/java/org/rundeck/plugin/flowcontrol/FlowControlWorkflowStep.java
+        if (oStepContext.getFlowControl() == null) {
+            loggerError("executeStepHaltJobFlow: HALT requested, but no FlowControl available in the current context")
+            return
+        }
+
+        Boolean bExitSuccess = false
+        if (sHaltExitState.equalsIgnoreCase("success")) { bExitSuccess = true }
+
+        logFinishMessage("Halt requested with this job final state set to => " + sHaltExitState + "\nAll remaining steps for this job will be ignored.")
+        oStepContext.getFlowControl().Halt(bExitSuccess)
+    }
+
+
+    /**
     * verify at the end of the flow if force launch is activated and set the resolved status <br/>
     * then verify the resolved final status and throws a StepException if not resolved
     * @param sMsgForNoDepResolved : additional information to the abort message if the dependency was not resolved
@@ -503,9 +533,10 @@ class DependenciesWorkflowTemplate implements StepPlugin {
         }
 
         if ( !bThisFlowDepResolved ) {
+            // TODO: implement a proper TimedOut exception - currently it is seen as a basic error
             // ref: https://github.com/rundeck/rundeck/blob/main/rundeckapp/grails-app/jobs/rundeck/quartzjobs/ExecutionJob.groovy
-            // it seems it is not possible to set a proper timeout directly, the running context must be updated directly by updating "<RunContext> runContext.timeout = 1"
-            // TODO: see if "<PluginStepContext> context.getFlowControl().Halt(statusString)" is not better suited
+            // it seems it is not possible to set a proper timeout directly, the running context must be updated by updating "<RunContext> runContext.timeout = 1"
+            // see if "<PluginStepContext> context.getFlowControl().Halt(statusString)" is not better suited
             throw new StepException(
                 "Timeout reached and " + sMsgForNoDepResolved + " => abort\n(" + DepsHelper.dateNowPrettyPrint() + ")",
                 PluginFailureReason.TimedOut
@@ -535,63 +566,26 @@ class DependenciesWorkflowTemplate implements StepPlugin {
     * (https://github.com/rundeck/rundeck/issues/9290)
     */
     void debug_ExecutionReferenceInfos(String sMessagePrefix, ExecutionReference oTargetJobExecRef) {
+        if ( !DEBUG ) { return }    // no need to spend time retrieving the class names
+        String sMessage = sMessagePrefix + "Job execution found : "
+        String sMsgPadding = String.format("%" + sMessage.length() + "s", "");
+
         // ref : https://javadoc.io/doc/org.rundeck/rundeck-core/latest/com/dtolabs/rundeck/core/execution/ExecutionReference.html
         // ref : https://github.com/rundeck/rundeck/blob/main/grails-rundeck-data-shared/src/main/groovy/rundeck/data/util/ExecutionDataUtil.groovy
-
-        logDebug(sMessagePrefix + "Job execution found : " +
-            "[" + oTargetJobExecRef.getClass().getName() + "] " +
-           "getId(" + oTargetJobExecRef.getId() + ")[" + oTargetJobExecRef.getId().getClass().getName() + "] -* " +
+        logDebug(sMessage + "[" + oTargetJobExecRef.getClass().getName() + "] " +
+           "getId(" + oTargetJobExecRef.getId() + ")[" + oTargetJobExecRef.getId().getClass().getName() + "] \n" +
            // should not be "null" when the execution is still running
-           "getStatus(" + oTargetJobExecRef.getStatus() + ")[" + oTargetJobExecRef.getStatus().getClass().getName() + "] -* " +
-           "getOptions(" + oTargetJobExecRef.getOptions() + ")[" + oTargetJobExecRef.getOptions().getClass().getName() + "] -* " +
-           "getTargetNodes(" + oTargetJobExecRef.getTargetNodes() + ")[" + oTargetJobExecRef.getTargetNodes().getClass().getName() + "] -* " +
-           "getFilter(" + oTargetJobExecRef.getFilter() + ")[" + oTargetJobExecRef.getFilter().getClass().getName() + "] -* " +
-           "getExecutionType(" + oTargetJobExecRef.getExecutionType() + ")[" + oTargetJobExecRef.getExecutionType().getClass().getName() + "] -* " +
+           sMsgPadding + "getStatus(" + oTargetJobExecRef.getStatus() + ")[" + oTargetJobExecRef.getStatus().getClass().getName() + "] \n" +
+           sMsgPadding + "getOptions(" + oTargetJobExecRef.getOptions() + ")[" + oTargetJobExecRef.getOptions().getClass().getName() + "] \n" +
+           sMsgPadding + "getTargetNodes(" + oTargetJobExecRef.getTargetNodes() + ")[" + oTargetJobExecRef.getTargetNodes().getClass().getName() + "] \n" +
+           sMsgPadding + "getFilter(" + oTargetJobExecRef.getFilter() + ")[" + oTargetJobExecRef.getFilter().getClass().getName() + "] \n" +
+           sMsgPadding + "getExecutionType(" + oTargetJobExecRef.getExecutionType() + ")[" + oTargetJobExecRef.getExecutionType().getClass().getName() + "] \n" +
            // should be "java.date" instead of "java.sql.Timestamp"
-           "getDateStarted(" + oTargetJobExecRef.getDateStarted() + ")[" + oTargetJobExecRef.getDateStarted().getClass().getName() + "] -* " +
+           sMsgPadding + "getDateStarted(" + oTargetJobExecRef.getDateStarted() + ")[" + oTargetJobExecRef.getDateStarted().getClass().getName() + "] \n" +
            // should be "java.date" instead of "null" when complete
-           "getDateCompleted(" + oTargetJobExecRef.getDateCompleted() + ")[" + oTargetJobExecRef.getDateCompleted().getClass().getName() + "] -* " +
+           sMsgPadding + "getDateCompleted(" + oTargetJobExecRef.getDateCompleted() + ")[" + oTargetJobExecRef.getDateCompleted().getClass().getName() + "] \n" +
+           // should be "java.util.Map" and not empty
+           sMsgPadding + "getMetadata(" + oTargetJobExecRef.getMetadata().toString() + ")[" + oTargetJobExecRef.getMetadata().getClass().getName() + "] \n" +
            "")
     }
-
-
-    // #############################################################################################
-
-    /*  DROPPED - check again when Rundeck implements the full "groovy-all" and not the basic flavor with only a gutted CliBuilder
-
-    // The cli module is here for the extra parameters to keep the compatibility with the previous versions running as a shell script
-    CliBuilderInternal oCli = null
-
-
-    * initialize the supported cli parameters for this class
-    * ref : https://docs.groovy-lang.org/latest/html/gapi/groovy/cli/internal/CliBuilderInternal.html
-    * @return object oCli
-    void cliParamInit() {
-        // no override allowed
-        if ( oCli ) { return }
-
-        logDebug("plugin:cliParamInit:build cli list ...")
-
-        // the CliBuilder "aliases" property is not yet supported
-        oCli = new CliBuilderInternal(name: PLUGIN_NAME).tap {
-            debug(type: Boolean, defaultValue: false, "(optional) activate the debug mode.")
-            force_launch("(optional) force the execution when the waiting time period or workflow end time is reached.")
-            skip("('optional) skip all checks and exit immediatly with a success state. Used to unlock the job waiting for a dependency.")
-            bypass(type: Boolean, defaultValue: false, "'optional) alias for skip")
-            wait(type: Integer, args: 1, "(optional) maximum wait duration in seconds for a dependency, if the workflow end time is not reached. " +
-                                         "Default is " + DepsConstants.flowTimeoutDurationSecString + " sec")
-            maxwait(type: Integer, args: 1, "(optional) alias for wait")
-            maxWait(type: Integer, args: 1, "(optional) alias for wait")
-            startup_delay(type: Integer, args: 1, "(optional) Delay before starting to look for other jobs. Default is " + DepsConstants.flowStartupDelaySec + " sec")
-            flow_daily_start(type: String, args: 1, "(optional) start time of the execution flow. Defaut : " + DepsConstants.flowDailyStartTime )
-            flow_daily_end(type: String, args: 1, "(optional) end time of the execution flow. Defaut : " + DepsConstants.flowDailyEndTime )
-            nodefilter_regex(type: String, args: 1, "(optional) specify the regex string if 'node_filtering' is set to 'regex'")
-        }
-        oCli.acceptLongOptionsWithSingleHyphen = true
-
-        // not supported by groovy.cli.internal.CliBuilderInternal
-        // oCli.setOptionsCaseInsensitive(true);
-        // oCli.setSubcommandsCaseInsensitive(true);
-    }
-    */
 }

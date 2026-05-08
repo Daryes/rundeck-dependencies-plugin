@@ -28,6 +28,7 @@ clean: ## clean the build environment and stop Gradle's daemon
 	gradle clean || true
 	gradle --stop || true
 	@if [ -d .gradle ]; then rm -r .gradle ; fi
+	@if [ -d ~/.gradle ]; then sleep 2s; rm -r ~/.gradle ; fi
 	@if [ -d "${BUILD_DIR}" ] && [ "${BUILD_DIR}" != "/" ]; then rm -r "${BUILD_DIR}" ; fi
 	@if [ -d "${REPORT_DIR}" ] && [ "${REPORT_DIR}" != "/" ]; then rm -r "${REPORT_DIR}" ; fi
 	@if [ -d "${RELEASE_DIR}" ] && [ "${RELEASE_DIR}" != "/" ]; then rm -r "${RELEASE_DIR}" ; fi
@@ -35,11 +36,6 @@ clean: ## clean the build environment and stop Gradle's daemon
 
 # For the Jenkins pipeline, a warnings-ng.jks file must be create with the name of the java class of the analysis module
 # ref : https://github.com/jenkinsci/warnings-ng-plugin/tree/master/plugin/src/main/java/io/jenkins/plugins/analysis/warnings
-
-#.PHONY: test
-#test-mytest: ## test the module - syntax: make test REPORT_DIR=/path/to/analysis/logs
-#	gradle mytest --warning-mode all --info -DreportDir=$(REPORT_DIR)/mytest
-#	echo "MyTest" > $(REPORT_DIR)/$(JENKINS_WRNG)
 
 
 test-static-pmd-cpd-duplicate: ## code duplicate tests - syntax: make test-static-pmd-cpd-duplicate REPORT_DIR=/path/to/analysis/logs

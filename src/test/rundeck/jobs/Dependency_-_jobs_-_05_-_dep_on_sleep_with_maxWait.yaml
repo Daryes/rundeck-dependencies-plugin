@@ -1,0 +1,121 @@
+- defaultTab: nodes
+  description: "Dependency on the sleep job with multiple values to maxWait  \nEach\
+    \ step should exit on timeout with the following durations :  \n1 : 10s  \n2 :\
+    \  5s  \n3 : 1m5s  \n4 : 9s (command line)  "
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: dcbcb23e-b1f5-4386-af56-d1d867ca663c
+  loglevel: INFO
+  name: Dependency - jobs - 05 - dep on sleep with maxWait
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: 'name: localhost '
+  nodesSelectedByDefault: true
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+    value: -debug
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        halt_opposite_state: 'false'
+        maxWait: '10'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 01 - sleep
+        target_project: ${job.project}
+      description: dep 10s
+      errorhandler:
+        configuration:
+          fail: 'true'
+          halt: 'false'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        force_launch: 'false'
+        halt_opposite_state: 'false'
+        maxWait: 0m05s
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 01 - sleep
+        target_project: ${job.project}
+      description: dep 5s
+      errorhandler:
+        configuration:
+          fail: 'true'
+          halt: 'false'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        force_launch: 'false'
+        halt_opposite_state: 'false'
+        maxWait: 1m5s
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 01 - sleep
+        target_project: ${job.project}
+      description: dep 1m5s
+      errorhandler:
+        configuration:
+          fail: 'true'
+          halt: 'false'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        force_launch: 'false'
+        halt_opposite_state: 'false'
+        maxWait: 1h2m3s
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 9
+        softlink: -hardlink
+        status_job: error
+        target_group: ${job.group}
+        target_job: Dependency - jobs - 01 - sleep
+        target_project: ${job.project}
+      description: dep 9s
+      errorhandler:
+        configuration:
+          fail: 'true'
+          halt: 'false'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: dcbcb23e-b1f5-4386-af56-d1d867ca663c

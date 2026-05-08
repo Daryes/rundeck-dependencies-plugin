@@ -1,0 +1,465 @@
+/* CSS for dependencies-wait-ui plugin */
+
+#dependencies-wait-ui {
+    --link-generic-normal-stroke-width: 4px;
+    --link-generic-force-stroke-width: 6px;
+    --color-node-default-fill: white;           /* used by job, file, jobref nodes */
+    --color-node-default-stroke: black;
+    --color-node-select-stroke: var(--color-label-job-header-bg);   /* var(--primary-states-color); */
+    --color-node-select-fill: ivory;
+    --color-node-muted-text: var(--text-muted-color);               /* RD theme */
+    --color-label-default-fill: var(--color-node-default-fill);
+    --color-label-job-header-text: white;
+    --color-label-job-header-bg: var(--info-states-color);
+    --color-label-file-header-bg: var(--primary-states-color);
+    --color-label-marker-bg: whitesmoke;
+    --color-label-marker-warning: orangered;
+    --color-link-generic: black;
+    --color-link-success-normal: var(--colors-green-600);
+    --color-link-success-force: orange;
+    --color-link-error-normal: #ff5a6a;
+    --color-link-error-force: var(--colors-red-600);
+    --color-link-file-normal: var(--colors-messenger-200);
+    --color-link-file-force: var(--colors-messenger-600);
+    --color-link-jobref-normal: var(--purple-600);
+    --color-link-jobref-error: var(--colors-red-600);
+    --zindex-label-marker-generic: 2;
+    --zindex-label-overlay: 4;
+    --zindex-label-overlay-top: 5;
+    --zindex-label-marker-warning: var(--zindex-label-overlay-top);
+    --zindex-label-marker-jobref: var(--zindex-label-overlay-top);
+}
+
+#dependencies-wait-ui .modal-dialog {
+    padding-top: 0;
+}
+
+#dependencies-wait-ui #dependencies-wait-ui-title {
+    display: flex;
+    flex-direction: row;
+}
+
+#dependencies-wait-ui #dependencies-wait-ui-title div {
+    width: 40%;
+}
+
+#dependencies-wait-ui .pull-relative-left {
+	position: relative !important;
+    float: left !important; /* rd pull-left */
+}
+
+#dependencies-wait-ui .pull-relative-right {
+	position: relative !important;
+    float: right !important; /* rd pull-right */
+}
+
+#dependencies-wait-ui .pull-absolute-top-left {
+	position: absolute !important;  /* need "position: relative" on the parent */
+    top: 0;
+    left: 0;
+}
+
+#dependencies-wait-ui .pull-absolute-top-center {
+	position: absolute !important;  /* need "position: relative" on the parent */
+	top: 0;
+	right: 0;
+	left: 0;
+	margin-inline: auto;
+    width: min-content;
+}
+
+#dependencies-wait-ui .pull-absolute-top-right {
+	position: absolute !important;  /* need "position: relative" on the parent */
+    top: 0;
+    right: 0;
+}
+
+#dependencies-wait-ui .pull-absolute-bottom-left {
+	position: absolute !important;  /* need "position: relative" on the parent */
+    bottom: 0;
+    left: 0;
+}
+
+#dependencies-wait-ui .pull-absolute-bottom-right {
+	position: absolute !important;  /* need "position: relative" on the parent */
+    bottom: 0;
+    right: 0;
+}
+
+
+#dependencies-wait-ui-spinner {
+    text-align: center;
+}
+
+
+/* the .progress and .progress-bar-info classes are from RD theme which set many rules */
+#dependencies-wait-ui-progress-bar {
+    display: inline-block;
+    position: relative;
+    text-align: center;
+    margin-left: 7%;
+    width: 86%;         /* cannot do a margin-right so adjust the whole width */
+    /* background-color: var(--medium-gray);    /* rd theme */
+    transition: width .6s ease;
+}
+#dependencies-wait-ui-progress-bar .progress-bar-info {
+    width: 1%;
+    max-width: 100%;
+    height: 100%;
+    /* background-color: var(--info-color);     /* rd theme */
+}
+
+#dependencies-wait-ui-progress-bar .progress-bar-text {
+	position: absolute;
+	top: 0;
+	margin: 0 auto;     /* allow to center the text with left = right = 0 */
+    left: 0;
+    right: 0;
+	color: var(--font-fill-color);     /* rd theme */
+	z-index: 9;
+}
+
+
+svg#dependencies-wait-ui-canvas {
+    height: 100%;
+    width:  100%;
+}
+
+#dependencies-wait-ui .svg-tooltip-info {
+    display: unset;
+    float: left;
+    text-align: center;
+    width: 85%;
+    padding-left: 15%;
+}
+#dependencies-wait-ui .svg-tooltip-info i {
+    font-size: 1.7em;
+    padding: 2px 3px 3px 0px;
+    vertical-align: sub;
+}
+#dependencies-wait-ui .svg-tooltip-info .link-force i {
+    color: var(--color-link-force);
+}
+
+#dependencies-wait-ui-canvas .toggle-visibility:not(.toggle-visible-protect) {
+    filter: opacity(1);
+    transition: all 0.4s;
+}
+#dependencies-wait-ui-canvas g.node.toggle-visible-protect.toggle-select rect {
+	fill: var(--color-node-select-fill);
+	stroke: var(--color-node-select-stroke);
+	/* stroke-width: 8px; */
+    stroke-dasharray: unset;
+    filter: drop-shadow(var(--color-node-select-stroke) 0px 0px 7px);
+    transition: all 0.4s;
+}
+#dependencies-wait-ui-canvas g.node.toggle-visible-protect.toggle-select .label-name {
+	color: var(--color-node-select-stroke);
+}
+
+
+/* nodes -------------------------------------------------------------------- */
+#dependencies-wait-ui-canvas .node.job rect {
+    stroke: var(--color-node-default-stroke);
+    fill: var(--color-node-default-fill);
+    /* clip-path: polygon(20px 0%,100% 0%,100% calc(100% - 20px),calc(100% - 20px) 100%,0% 100%,0% 20px); // obviously it cannot work */
+}
+
+
+#dependencies-wait-ui-canvas .node.file rect {
+    stroke: var(--color-node-default-stroke);
+    fill: var(--color-node-default-fill);
+}
+
+
+#dependencies-wait-ui-canvas .node .label .node-label-overlay {
+  /* do not use filter:brightness due to interference with the opacity filter used by the node focus */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: var(--zindex-label-overlay);
+}
+
+
+#dependencies-wait-ui-canvas .node.node-jobref rect {
+    stroke: var(--color-link-jobref-normal);
+}
+#dependencies-wait-ui-canvas .node.node-jobref .overlay-jobref {
+  background-color: rgba(255,255,255,0.66);
+}
+
+
+#dependencies-wait-ui-canvas .node.node-disabled {
+    color: var(--color-node-muted-text);
+}
+#dependencies-wait-ui-canvas .node.node-disabled rect {
+    stroke-dasharray: 3, 3;
+}
+#dependencies-wait-ui-canvas .node.node-disabled .overlay-disabled {
+  background-color: rgba(128,128,128,0.33);
+}
+
+
+#dependencies-wait-ui-canvas .node .label {
+    stroke: var(--color-label-default-fill);
+    fill: var(--color-label-default-fill);
+    text-transform: none;
+    text-align: center;
+ 	white-space: break-spaces;
+	padding: unset;         /* override rd */
+	border-radius: unset;   /* override rd */
+
+    /* allow markers to overlap the label content */
+	position: relative;
+	height: 100%;
+	width: 100%;
+
+    /* user-select: none;      /* the svg panning causes some interferences */
+    
+    /* also set in rundeck:theme.css for .label */
+    font-size: 0.90em;
+    font-weight: 500;
+    line-height: 1.5em;
+	display: inline-block;
+}
+#dependencies-wait-ui-canvas .node .label a {
+        color: inherit;
+        text-decoration: inherit;
+}
+
+
+#dependencies-wait-ui-canvas .node .label-marker {
+	border: 1px solid black;
+	border-radius: 100px;
+    padding-right: 0.5em;
+    background-color: var(--color-label-marker-bg);
+    z-index: var(--zindex-label-marker-generic);
+}
+#dependencies-wait-ui-canvas .node .label-marker i {
+    font-size: 1.5em;
+    padding: 2px 3px 3px 5px;
+    vertical-align: sub;
+}
+
+
+#dependencies-wait-ui-canvas .node .marker-slot {
+	padding: 0.3em 0.4em 0.4em 0.4em;
+    color: indigo;
+    font-size: 1.7em;
+    border-color: goldenrod;
+    border-width: 3px;
+}
+
+
+#dependencies-wait-ui-canvas .node .marker-flag {
+	color: var(--primary-states-color);
+}
+
+
+#dependencies-wait-ui-canvas .node .marker-hash {
+	color: var(--success-color);
+    padding-left: 0.2em;
+}
+
+
+#dependencies-wait-ui-canvas .node .marker-jobref {
+    color: var(--color-label-default-fill);
+    background: var(--color-link-jobref-normal);
+	padding-left: 0.4em;
+	padding-bottom: 0.5em;
+	z-index: var(--zindex-label-marker-warning);
+}
+#dependencies-wait-ui-canvas .node .marker-jobref i {
+	filter: opacity(1) !important;
+}
+  
+
+#dependencies-wait-ui-canvas .node .marker-notification {
+	color: var(--info-states-color);    /* rd theme */
+    font-weight: bold;
+}
+
+
+#dependencies-wait-ui-canvas .node .label-marker-warning {
+    font-size: 4em;
+    margin-right: 5px;
+	width: 1em;
+	height: 1.01em;
+	border-radius: 200px;
+    background: var(--color-label-marker-bg);
+	z-index: var(--zindex-label-marker-warning);
+}
+#dependencies-wait-ui-canvas .node .label-marker-warning i {
+    color: var(--color-label-marker-warning);
+	filter: opacity(1) !important;
+}
+#dependencies-wait-ui-canvas .node .label-marker-warning.marker-disabled i {
+    color: var(--color-node-muted-text);
+}
+
+
+#dependencies-wait-ui-canvas .node.job .label-group {
+    border-radius: 7px 7px 0 0;
+    padding-bottom: 0.2em;
+    margin-bottom: 1em;
+    background-color: var(--color-label-job-header-bg);
+    color: var(--color-label-job-header-text);
+	font-style: italic;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+#dependencies-wait-ui-canvas .node.job .label-name {
+    font-size: 1.5em;
+    font-weight: bold;
+    margin-bottom: 0.3em;
+}
+
+#dependencies-wait-ui-canvas .node.job .label-project-external {
+    color: orange;
+    font-size: 1.5em;
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+#dependencies-wait-ui-canvas .node.file .label {
+	text-align: center;
+    white-space: nowrap;
+}
+
+#dependencies-wait-ui-canvas .node.file .label-file-host {
+    border-radius: 80px/40px 40px 0 0;
+	margin: 0 7px 0.3em 7px;
+    padding: 0 0 0.2em 10px;
+    background-color: var(--color-label-file-header-bg);
+    color: white;
+	font-style: italic;
+}
+
+#dependencies-wait-ui-canvas .node.file .label-file-name {
+    font-size: 1em;
+    font-weight: bold;
+    text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+#dependencies-wait-ui-canvas .node.file .label-file-dir {
+    font-weight: bold;
+	margin: 0 5% 0 5%;
+    text-overflow: ellipsis;
+	overflow: hidden;
+}
+
+#dependencies-wait-ui-canvas .node.file .label-file-dir i,
+#dependencies-wait-ui-canvas .node.file .label-file-name i {
+    font-size: 1.7em;
+    padding: 0px 3px 3px 5px;
+    vertical-align: sub;
+}
+
+
+/* edges -------------------------------------------------------------------- */
+
+#dependencies-wait-ui-canvas .edgePaths .joblink path,
+#dependencies-wait-ui-canvas .edgePaths .filelink path,
+#dependencies-wait-ui-canvas .edgePaths .reflink path {
+    stroke-width: var(--link-generic-normal-stroke-width);
+}
+
+/*
+#dependencies-wait-ui-canvas .edgePaths .joblink:hover path,
+#dependencies-wait-ui-canvas .edgePaths .filelink:hover path,
+#dependencies-wait-ui-canvas .edgePaths .reflink:hover path {
+    stroke-width: 8px;
+    transition: stroke-width 0.3s ease-in-out;
+}
+*/
+
+#dependencies-wait-ui-canvas .edgePaths .link-soft path {
+    stroke-dasharray: 10, 5;
+}
+
+#dependencies-wait-ui-canvas .edgePaths .link-force path {
+    stroke-width: var(--link-generic-force-stroke-width);
+}
+
+#dependencies-wait-ui-canvas .edgePaths .joblink:not(.link-force) path { stroke: var(--color-link-success-normal); }
+#dependencies-wait-ui-canvas .edgePaths .joblink:not(.link-force) marker { fill: var(--color-link-success-normal); }
+
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-force path { stroke: var(--color-link-success-force); }
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-force marker { fill: var(--color-link-success-force); }
+
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-error:not(.link-force) path { stroke: var(--color-link-error-normal) !important; }
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-error:not(.link-force) marker { fill: var(--color-link-error-normal) !important; }
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-error.link-force path { stroke: var(--color-link-error-force) !important; }
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-error.link-force marker { fill: var(--color-link-error-force) !important; }
+
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-normal path { stroke: var(--color-link-generic); }
+#dependencies-wait-ui-canvas .edgePaths .joblink.link-normal marker { fill: var(--color-link-generic); }
+
+
+#dependencies-wait-ui-canvas .edgePaths .reflink path { stroke: var(--color-link-jobref-normal); }
+#dependencies-wait-ui-canvas .edgePaths .reflink marker { fill: var(--color-link-jobref-normal); }
+
+#dependencies-wait-ui-canvas .edgePaths .reflink.link-error path { stroke: var(--color-link-jobref-error) !important; }
+#dependencies-wait-ui-canvas .edgePaths .reflink.link-error marker { fill: var(--color-link-jobref-error) !important; }
+
+
+#dependencies-wait-ui-canvas .edgePaths .filelink path { stroke: var(--color-link-file-normal); }
+#dependencies-wait-ui-canvas .edgePaths .filelink marker { fill: var(--color-link-file-normal); }
+
+#dependencies-wait-ui-canvas .edgePaths .filelink.link-force path { stroke: var(--color-link-file-force) !important; }
+#dependencies-wait-ui-canvas .edgePaths .filelink.link-force marker { fill: var(--color-link-file-force) !important; }
+
+
+/* clusters ----------------------------------------------------------------- */
+/* WARNING Dagre : cannot set the class for a cluster node => some settings are in the code */
+#dependencies-wait-ui-canvas .cluster .label foreignObject {
+    /* adjust the label box size */
+    /* height: 20px; */
+}
+
+#dependencies-wait-ui-canvas .cluster .label  {
+    font-size: 1em;
+}
+
+#dependencies-wait-ui-canvas .cluster .cluster-schedule {
+    /* stroke: var(--colors-gray-100); 
+    fill: var(--colors-gray-100);",
+    text-decoration: underline;
+}
+#dependencies-wait-ui-canvas .cluster .cluster-group-jobs {
+    fill: var(--colors-gray-200);
+*/
+}
+ 
+
+/* the hidden links to the hidden boxes */
+#dependencies-wait-ui-canvas .node.schedule-link,
+#dependencies-wait-ui-canvas .edgePath.schedule-link {
+    stroke: none;
+    stroke-width: 1px;
+    fill: none;
+    color: transparent;
+}
+
+
+/*
+item to "float" {
+position: absolute;
+top: 0px;
+left: 50%;
+z-index: 100;
+overflow: hidden;
+display: none;  // <= none/visible
+transition: all 0.5s ease-in-out;
+}
+
+item right after {
+position: relative
+}
+*/

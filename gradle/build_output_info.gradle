@@ -1,0 +1,33 @@
+// file to source by build.gradle
+
+// TODO: see how to not repeat the declaration
+def projectExt = project.ext.getProperties()
+
+
+// add some information data at the end of the execution
+tasks.register("outputinfo") {
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    group = "build"
+    description = "output some information"
+    doLast {
+        println ""
+        println "Project version : " + version
+        println "Build dir : " + projectExt["buildDirectory"]
+        println "Docs  dir : " + projectExt["docDirectory"]
+        println "Releases dir: " + projectExt["releaseDirectory"]
+        println "Reports dir: " + projectExt["reportDirectory"]
+    }
+}
+tasks.named("assemble") { finalizedBy("outputinfo") }
+tasks.named("build") { finalizedBy("outputinfo") }
+tasks.named("check") { finalizedBy("outputinfo") }
+
+
+// always output time when finished
+gradle.getTaskGraph().whenReady { graph ->
+    graph.getAllTasks().last().doLast {
+        Date now = new Date()
+        println "\n ***** All completed @ $now  ***"
+    }
+}

@@ -1,0 +1,46 @@
+- defaultTab: nodes
+  description: "Dependency on the \"do not launch\" job  \n1 : hard dep unable to\
+    \ complete - will exit as timeout\n"
+  executionEnabled: true
+  group: tests-dependency-jobs
+  id: edd40f16-f82a-4b4d-8a80-4680465b3c42
+  loglevel: INFO
+  name: Dependency - jobs - 22 - dep on do not launch - exit with timeout
+  nodeFilterEditable: false
+  options:
+  - description: Extra parameters for the dependencies
+    label: 'Deps parameters '
+    name: DEPENDENCY_EXTRA_PARAMS
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        node_filtering: adapt
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 1 -sleep_duration
+          5
+        softlink: -hardlink
+        status_job: success
+        target_group: ${job.group}
+        target_job: Dependency - jobs - x - do not launch me
+        target_project: ${job.project}
+      description: dep hardlink - timeout
+      errorhandler:
+        configuration:
+          fail: 'false'
+          halt: 'false'
+        keepgoingOnSuccess: true
+        nodeStep: false
+        type: flow-control
+      nodeStep: false
+      type: dependencies-wait_job
+    - configuration:
+        command: bash -c -- "echo job finished"
+      description: echo
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: edd40f16-f82a-4b4d-8a80-4680465b3c42

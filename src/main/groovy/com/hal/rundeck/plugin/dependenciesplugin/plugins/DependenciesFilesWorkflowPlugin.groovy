@@ -1,6 +1,9 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 // External packages or modules dependencies
+// skip imports - CPD-OFF
 // base
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUPING
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUP_NAME
@@ -47,10 +50,10 @@ import java.text.DateFormat;
 import java.util.HashMap;
 import java.lang.System;
 
+// CPD-ON
 
 /**
 * Module dependencies-wait_file - a Rundeck workflow plugin  <br />
-* All variables or function calls using "this.<name>" are using the parent class elements.
 */
 @Plugin(name = PLUGIN_NAME, service = ServiceNameConstants.WorkflowStep)
 @PluginDescription(title = PLUGIN_TITLE, description = PLUGIN_DESCRIPTION)
@@ -60,13 +63,13 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
     public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / file"
     public static final String PLUGIN_DESCRIPTION = "Wait for a file in a given directory on a remote server or the Rundeck server."
 
-    /**
-    * Many problems to use constants in annotation with {} in the same class
-    * declare value={...} with value=[ ... ] and might have to use protected instead of public
+   /**
+    * Many problems in groovy to use constants in annotation with {} in the same class
+    * like "declare value={...} with value=[ ... ]" and might also have to use protected instead of public
     * ref : https://issues.apache.org/jira/browse/GROOVY-5776
     * ref : https://issues.apache.org/jira/browse/GROOVY-3278
     * ref : https://docs.groovy-lang.org/3.0.17/html/documentation/#_java_style_array_initialization
-    **/
+    */
 
     protected static final String JOBDEPS_PROP_FLAG_YES = "yes"
     protected static final String JOBDEPS_PROP_FLAG_NO = "no"
@@ -76,11 +79,10 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
     protected static final String JOBDEPS_PROP_HOST_LOCAL = "local"
     protected static final String JOBDEPS_PROP_HOST_LOCALHOST = "localhost"
 
-
     // #############################################################################################
 
     // ref: https://docs.rundeck.com/docs/developer/02-plugin-annotations.html#plugin-properties
-    // all parameters here are of string type to stay compatible with the older plugin version which was a shell script
+    // most of the parameters here are of string type to stay compatible with the older plugin version which was a shell script
 
     @PluginProperty(
         name = "target_host",
@@ -172,11 +174,13 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
      * @throws StepException : possible errors
      */
     @Override
+    @SuppressWarnings(['CyclomaticComplexity', 'AbcMetric'])
     void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws StepException {
         // ref: https://github.com/rundeck-plugins/job-state-plugin/blob/master/src/main/java/org/rundeck/plugin/jobstate/JobStateWorkflowStep.java
         // ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
 
-        HashMap<short,String> HASH_CMD_LIST = new HashMap<>()    // codenarc-disable-line ExplicitHashMapInstantiation, ImplementationAsType
+        @SuppressWarnings(['UnnecessaryObjectReferences'])          // using map.of(key, value, ...) is limited to 10 entries <_<
+        HashMap<short,String> HASH_CMD_LIST = new HashMap<>()       // codenarc-disable-line ExplicitHashMapInstantiation, ImplementationAsType
         HASH_CMD_LIST.put(5, "sum -r")       // BSD algorithm
         HASH_CMD_LIST.put(9, "cksum")        // CRC
         HASH_CMD_LIST.put(32, "md5sum")
@@ -222,8 +226,7 @@ class DependenciesFilesWorkflowPlugin extends DependenciesWorkflowTemplate {
         // manage values from the extra parameters - command line behavior from the previous version
         // a value from the extra param has the priority over a UI value
         this.initParseCommandLine()
-        this.initPropertiesFinalValueFromCmdLine()
-        this.initPropertiesFinalValueFromCmdLineCleanup()
+        this.initParseCommandLineCleanup()
 
 
         // workflow starting and ending date/time calculation

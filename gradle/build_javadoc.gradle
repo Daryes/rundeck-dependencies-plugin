@@ -1,0 +1,25 @@
+// file to source by build.gradle
+
+// https://docs.gradle.org/current/dsl/org.gradle.api.tasks.javadoc.Javadoc.html
+javadoc {
+    title = project.ext.pluginPackageName
+    source = "src/main/java"
+    destinationDir = file(new File(project.ext.docDirectory + "/javadoc"))
+}
+
+// https://docs.gradle.org/current/dsl/org.gradle.api.tasks.javadoc.Groovydoc.html
+groovydoc {
+    docTitle = project.ext.pluginPackageName
+    source = "src/main/groovy"
+    // add the javadoc into groovydoc
+    // source project.tasks.findByName('javadoc').source
+    destinationDir = file(new File(project.ext.docDirectory + "/groovydoc"))
+    shouldRunAfter(javadoc)
+}
+
+tasks.register("doc") {
+    outputs.upToDateWhen { false }
+    outputs.cacheIf { false }
+    dependsOn(javadoc)
+    dependsOn(groovydoc)
+}

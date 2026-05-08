@@ -1,6 +1,9 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 // External packages or modules dependencies
+// skip imports - CPD-OFF
 // base
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUPING
 import static com.dtolabs.rundeck.core.plugins.configuration.StringRenderingConstants.GROUP_NAME
@@ -50,13 +53,12 @@ import java.lang.System;
 
 // extras
 import java.util.List;
-// required by com.dtolabs.rundeck.core.execution.ExecutionReference
 import java.util.Date;
 
+// CPD-ON
 
 /**
 * Module dependencies-wait_job - a Rundeck workflow plugin  <br />
-* All variables or function calls using "this.<name>" are using the parent class elements.
 */
 @Plugin(name = PLUGIN_NAME, service = ServiceNameConstants.WorkflowStep)
 @PluginDescription(title = PLUGIN_TITLE, description = PLUGIN_DESCRIPTION)
@@ -66,13 +68,6 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     public static final String PLUGIN_TITLE = "Dependencies Workflow / wait / job"
     public static final String PLUGIN_DESCRIPTION = "Wait for another job execution in a given state in a workflow, with advanced waiting options."
 
-    /**
-    * Many problems in groovy to use constants in annotation with {} in the same class
-    * declare value={...} with value=[ ... ] and might have to use protected instead of public
-    * ref : https://issues.apache.org/jira/browse/GROOVY-5776
-    * ref : https://issues.apache.org/jira/browse/GROOVY-3278
-    * ref : https://docs.groovy-lang.org/3.0.17/html/documentation/#_java_style_array_initialization
-    */
     protected static final String JOBDEPS_PROP_STATE_SUCCESS = "success"
     protected static final String JOBDEPS_PROP_STATE_ERROR = "error"
 
@@ -83,11 +78,10 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     protected static final String JOBDEPS_PROP_NODE_FILTER_GLOBAL = "global"
     protected static final String JOBDEPS_PROP_NODE_FILTER_REGEX = "regex"
 
-
     // #############################################################################################
 
     // ref: https://docs.rundeck.com/docs/developer/02-plugin-annotations.html#plugin-properties
-    // all parameters here are of string type to stay compatible with the older plugin version which was a shell script
+    // most of the parameters here are of string type to stay compatible with the older plugin version which was a shell script
 
     @PluginProperty(
         name = "target_project",
@@ -134,7 +128,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     String sPropTargetJobStatus;
 
 
-    // The name should be "link_type", but is kept as "softlink" for the compatibility with older versions
+    // NOTICE: The property should be named "link_type", but is kept as "softlink" for the compatibility with older versions
     @PluginProperty(
         name = "softlink",
         title = "Dependency type",
@@ -150,6 +144,20 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
 
 
     @PluginProperty(
+        name = "halt_opposite_state",
+        title = "Halt execution on opposite job's state",
+        description = "Halt and exit this job's execution with the 'success' state ONLY when the target job is ended and in the opposite state than desired.  \n" +
+                      "I.E. when the target job is completed with the success state, and the dependency is set to error,  \n" +
+                      "or when the target job is in error, but the dependency is expecting the success state.  \n" +
+                      "Useful for jobs with steps to execute only when the target job is in error, and skip them the other times.",
+        defaultValue = "false",
+        required = false
+    )
+    @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Dependency tuning"), @RenderingOption(key = GROUPING, value = "secondary") ])
+    Boolean bPropHaltOnOppositeState;
+
+
+    @PluginProperty(
         name = "node_filtering",
         title = "Node filtering",
         description = "Option to manage launches when the 'Change the target nodes' option is used in the job instead of keeping the default setting.  \n" +
@@ -161,7 +169,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         defaultValue = JOBDEPS_PROP_NODE_FILTER_ADAPT,
         required = true
     )
-    @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Other options"), @RenderingOption(key = GROUPING, value = "Dependency definition") ])
+    @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Other options"), @RenderingOption(key = GROUPING, value = "secondary") ])
     @SelectValues(freeSelect = false, values = [JOBDEPS_PROP_NODE_FILTER_ADAPT, JOBDEPS_PROP_NODE_FILTER_GLOBAL, JOBDEPS_PROP_NODE_FILTER_REGEX] )
     String sPropNodeFilter;
 
@@ -175,6 +183,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
      * @throws StepException : possible errors
      */
     @Override
+    @SuppressWarnings(['CyclomaticComplexity', 'AbcMetric'])
     void executeStep(final PluginStepContext context, final Map<String, Object> configuration) throws StepException {
         /*
         * ref: https://javadoc.io/doc/org.rundeck/rundeck-core/latest/index.html
@@ -186,10 +195,9 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         JobReference oTargetJobRef      = null
         String sTargetJobId             = ""
         Boolean bTargetJobIsRunning     = false
-        Boolean bTargetExecFound        = false
         java.util.List<ExecutionReference> aTargetJobExecData
         ExecutionReference oTargetJobExec
-        String sTargetJobExecTargetNodes = ""
+        String sTargetJobExecCurrentStatus = ""
         // information messages in the main loop
         Boolean bLoopOnetimeMsgNoExecInFlow = false
         Boolean bLoopOnetimeMsgJobRunning = false
@@ -206,17 +214,16 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         Boolean bTargetJobMandatory = false; if ( sPropLinkMode.contains(JOBDEPS_PROP_LINK_HARD) ) { bTargetJobMandatory = true; }
 
         // the execution filter can be absent or null
-        String sTargetJobFilterNodesAdapt = ""; if ( oThisExecution.getTargetNodes() ) { sTargetJobFilterNodesAdapt = oThisExecution.getTargetNodes() }
+        String sTargetJobNodeFilterAdapt = ""; if ( this.oThisExecution.getTargetNodes() ) { sTargetJobNodeFilterAdapt = this.oThisExecution.getTargetNodes() }
 
 
         // manage values from the extra parameters - command line behavior from the previous version
         // a value from the extra param has the priority over a UI value
         this.initParseCommandLine()
-        this.initPropertiesFinalValueFromCmdLine()
         // get the node filter from the cmdline
         String sPropFlowNodeFilterRegex = this.oPropExtraParams.get("nodefilter_regex") ?: ""
         // cleanup
-        this.initPropertiesFinalValueFromCmdLineCleanup()
+        this.initParseCommandLineCleanup()
 
 
         // workflow starting and ending date/time calculation
@@ -238,13 +245,16 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
         // check if -skip was provided on the command line
         if ( this.logSkipActivated() ) { return }
 
+        if (bPropHaltOnOppositeState) {
+            this.logBannerTitleLineFormat("Halt on opposite job's state",  "active")
+        }
+
 
         // Lookup for the target job ID ------------------------------------------------
         this.logDebug("plugin:executeStep:job:Looking for the target job ID ...")
-        oTargetJobRef = rdJob_GetObjFromName( this.oJobService, sPropTargetProject, sPropTargetGroup, sPropTargetJobName )
+        oTargetJobRef = rdJob_GetJobFromName( this.oJobService, sPropTargetProject, sPropTargetGroup, sPropTargetJobName )
         sTargetJobId = oTargetJobRef.getId()
         this.loggerNotice("Notice: Target job definition found with the ID: " + sTargetJobId)
-
 
         // Target job waiting sequence -------------------------------------------------
 
@@ -268,79 +278,47 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
             // if not running, that's where the work is starting
             if (!bTargetJobIsRunning) {         // codenarc-disable-line InvertedIfElse
                 this.logDebug("plugin:executeStep:loop:Retrieving target job execution list ...")
-                aTargetJobExecData = rdJob_GetJobExecData( this.oJobService, sPropTargetProject, sTargetJobId, "", dTimeFlowDailyStart)
+                aTargetJobExecData = rdJob_GetJobSearchExecutions( this.oJobService, sPropTargetProject, sTargetJobId, "", dTimeFlowDailyStart)
 
                 if (aTargetJobExecData.size() > 0) {
                     // Select the last execution from the list which should be the more recent
                     oTargetJobExec = aTargetJobExecData.get( aTargetJobExecData.size() - 1 )        // codenarc-disable-line UnnecessaryCallForLastElement
-                    bTargetExecFound = false
 
                     // shouldn't be required, but many properties can be with inappropriate types or values or even null in some cases
-                    if (DEBUG) { this.debug_ExecutionReferenceInfos("plugin:executeStep:loop: ", oTargetJobExec) }
+                    this.debug_ExecutionReferenceInfos("plugin:executeStep:loop: ", oTargetJobExec)
 
-                    // When a job is running getStatus() can be null in rare occurence
-                    if (oTargetJobExec.getStatus()) {
-                        // compare the job state with the expected one
-                        // groovism => [].any{ autogenerated "it" }
-                        if (sPropTargetJobStatus == JOBDEPS_PROP_STATE_SUCCESS) {
-                            bTargetExecFound = DepsConstants.jobState_ok.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
-
-                        } else {
-                            bTargetExecFound = DepsConstants.jobState_ko.any { oTargetJobExec.getStatus().equalsIgnoreCase(it) }
-                        }
-                    }
-
-                    if (bTargetExecFound) {
-                        // behavior change depending of the node compare mode
+                    sTargetJobExecCurrentStatus = jobExecutionGetStatus(oTargetJobExec.getStatus())
+                    if (sTargetJobExecCurrentStatus == sPropTargetJobStatus) {
+                        // behavior change depending of the compare mode for the node
                         this.logDebug("plugin:executeStep:loop:targetFound:execution with the valid state found - node filtering comparison ...")
                         this.logDebug("plugin:executeStep:loop:targetFound:filter:target job - node list : " + oTargetJobExec.getTargetNodes() )
 
-
-                        sTargetJobExecTargetNodes = ""
-                        if ( oTargetJobExec.getTargetNodes() ) {
-                            sTargetJobExecTargetNodes = oTargetJobExec.getTargetNodes()
-                            // when the job is local, the Rundeck server will appear as "localhost" => add the Rundeck server hostname
-                            sTargetJobExecTargetNodes = sTargetJobExecTargetNodes.replace( "localhost", "localhost," + sThisJobComputerName )
-                        }
-
-                        // adapt mode - look for having the same node for both jobs
-                        if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_ADAPT && !sTargetJobExecTargetNodes.isEmpty() && !sTargetJobFilterNodesAdapt.isEmpty() ) {
-                            this.logDebug("plugin:executeStep:loop:targetFound:filter:Adapt:search into this job node list : " + sTargetJobFilterNodesAdapt )
-
-                            for ( String i : sTargetJobExecTargetNodes.split(', *') ) {
-                                if ( sTargetJobFilterNodesAdapt.contains(i) ) {
-                                    this.loggerNotice("Notice: Adapt mode filtering - Node " + i + " found in : " +  sTargetJobExecTargetNodes )
-                                    this.bThisFlowDepResolved = true
-                                    break
-                                }
-                            }
-
-                        // regex mode
-                        } else if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_REGEX && !sTargetJobExecTargetNodes.isEmpty() && !sPropFlowNodeFilterRegex.trim().isEmpty() ) {
-                            this.logDebug("plugin:executeStep:loop:targetFound:filter:Regex:search in target with the regex : " + sPropFlowNodeFilterRegex )
-
-                            if ( sTargetJobExecTargetNodes.matches( sPropFlowNodeFilterRegex ) ) {
-                                this.loggerNotice("Notice: Regex mode filtering - node found in : " + sTargetJobExecTargetNodes )
-                                this.bThisFlowDepResolved = true
-                            }
-
-                        // global mode or no filter: any job in the expected state is valid, without regards for the execution node
-                        } else {
-                            this.logDebug("plugin:executeStep:loop:targetFound:filter:None:dependency set to resolved")
-                            this.bThisFlowDepResolved = true
-                        }
+                        this.bThisFlowDepResolved = nodeFilterIsDepFoundResolved(oTargetJobExec, sPropNodeFilter, sTargetJobNodeFilterAdapt, sPropFlowNodeFilterRegex)
 
                         // work is done  if the dep resolution is in the valid state
-                        // TODO: handle the change in the data type when this will be fixed : https://github.com/rundeck/rundeck/issues/9290
                         if (this.bThisFlowDepResolved) {
                             this.logDebug("plugin:executeStep:loop:dependency resolved ...")
-                            String sDateEndedStarted = oTargetJobExec.getDateCompleted() ?: oTargetJobExec.getDateStarted()
-                            this.logFinishMessage("Valid execution found : #" + oTargetJobExec.getId() + " ended at " + sDateEndedStarted + " with status '" + oTargetJobExec.getStatus() + "' => success" )    // codenarc-disable-line LineLength
+
+                            // handle the incomplete data from execRef.getDateCompleted() - ref : https://github.com/rundeck/rundeck/issues/9290
+                            String sDateEndedStarted
+                            if ( oTargetJobExec.getDateCompleted() != null) {
+                                sDateEndedStarted = " ended at " + oTargetJobExec.getDateCompleted()
+                            } else {
+                                sDateEndedStarted = " started at " + oTargetJobExec.getDateStarted()
+                            }
+
+                            this.logFinishMessage("Valid execution found : #" + oTargetJobExec.getId() + sDateEndedStarted + " with status '" + oTargetJobExec.getStatus() + "' => success" )    // codenarc-disable-line LineLength
                             break
                         }
 
+                    // execution found but not in the desired state
                     } else {
-                        if (!bLoopOnetimeMsgExecNotDesiredState) {
+                        if (sTargetJobExecCurrentStatus.length() > 0 && bPropHaltOnOppositeState) {
+                            this.loggerNoticeWithTime("Notice: Execution #" + oTargetJobExec.getId() + " has ended but is not in the desired state", ":")
+                            this.executeStepHaltJobFlow(context, "success")
+                            return
+
+                        } else if (!bLoopOnetimeMsgExecNotDesiredState) {
                             this.loggerNoticeWithTime("Notice: Execution #" + oTargetJobExec.getId() + " found but is not in the desired state - waiting ...", ":")
                             bLoopOnetimeMsgExecNotDesiredState = true
                             bLoopOnetimeMsgJobRunning = false
@@ -351,7 +329,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                 } else {
                     // the dependency is not mandatory => success & finish
                     if (!bTargetJobMandatory) {
-                        this.logFinishMessage("No job execution found AND optional dependency => success" )
+                        this.logFinishMessage("No execution for the target job in this current flow AND optional dependency => success" )
                         this.bThisFlowDepResolved = true
                         break
                     }
@@ -359,11 +337,12 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
                     // the dependency is mandatory => wait
                     if (!bLoopOnetimeMsgNoExecInFlow) {
                         // no date output as the step just started
-                        this.loggerNotice("Notice: No job execution found since the current flow starting time - waiting ..." )
+                        this.loggerNotice("Notice: No execution found for the target job since the current flow starting time - waiting ..." )
                         bLoopOnetimeMsgNoExecInFlow = true
                     }
                 }
 
+            // target job is still running
             } else {
                 if (!bLoopOnetimeMsgJobRunning) {
                     this.loggerNoticeWithTime("Notice: The target job is currently running - waiting ...", ":")
@@ -386,6 +365,86 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     // #############################################################################################
 
     /**
+    * Verify if the dependency is resolved depending of the node filter selection
+    * @param oJobExecRef :
+    * @param sPropNodeFilter :
+    * @param sTargetFilterNodeAdapt :
+    * @param sTargetFilterNodeRegex ;
+    * @return : true if the job nodes are covered by the node filter
+    */
+    Boolean nodeFilterIsDepFoundResolved(ExecutionReference oJobExecRef, String sPropNodeFilter, String sTargetFilterNodeAdapt, String sTargetFilterNodeRegex) {
+        Boolean bRet = false
+        String sJobExecTargetNodes = ""
+
+        if ( oJobExecRef.getTargetNodes() ) {
+            sJobExecTargetNodes = oJobExecRef.getTargetNodes()
+            // when the job is local, the Rundeck server will appear as "localhost" => add the Rundeck server hostname
+            sJobExecTargetNodes = sJobExecTargetNodes.replace( "localhost", "localhost," + this.sThisJobComputerName )
+        }
+        this.logDebug("plugin:nodeFilterIsDepFoundResolved: target job nodes = " + sJobExecTargetNodes)
+        this.logDebug("plugin:nodeFilterIsDepFoundResolved: nodeFilterProp = " + sPropNodeFilter + " (regex='" + sTargetFilterNodeRegex + "')")
+        this.logDebug("plugin:nodeFilterIsDepFoundResolved: nodeFilterAdapt = " + sTargetFilterNodeAdapt)
+
+        if (sJobExecTargetNodes.isEmpty()) {
+            this.logDebug("plugin:nodeFilterIsDepFoundResolved:getTargetNodes is empty => dependency set to resolved")
+            return true
+        }
+
+        // node filter: adapt mode - look for having the same node for both jobs
+        if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_ADAPT && !sTargetFilterNodeAdapt.isEmpty() ) {
+            this.logDebug("plugin:nodeFilterIsDepFoundResolved:filter:Adapt:search into this job node list : " + sTargetFilterNodeAdapt )
+
+            for ( String sNode : sJobExecTargetNodes.split(', *') ) {
+                if ( sTargetFilterNodeAdapt.contains(sNode) ) {
+                    this.loggerNotice("Notice: Adapt mode filtering - Node " + sNode + " found in : " +  sJobExecTargetNodes )
+                    bRet = true
+                    break
+                }
+            }
+
+        // node filter: regex mode
+        } else if (sPropNodeFilter == JOBDEPS_PROP_NODE_FILTER_REGEX && !sTargetFilterNodeRegex.trim().isEmpty() ) {
+            this.logDebug("plugin:nodeFilterIsDepFoundResolved:filter:Regex:search in target with the regex : " + sTargetFilterNodeRegex )
+
+            if ( sJobExecTargetNodes.matches( sTargetFilterNodeRegex ) ) {
+                this.loggerNotice("Notice: Regex mode filtering - node found in : " + sJobExecTargetNodes )
+                bRet = true
+            }
+
+        // node filter: global mode or no filter - any job in the expected state is valid, without regards for the execution node
+        } else {
+            this.logDebug("plugin:nodeFilterIsDepFoundResolved:filter:None:dependency set to resolved")
+            bRet = true
+        }
+
+        return bRet
+    }
+
+    /**
+    * validate the status of an execution
+    * @param sExecGetStatus :
+    * @return : return either "success", "error", or "" if the status it not an expected state for a completed execution
+    */
+    String jobExecutionGetStatus(String sExecGetStatus) {
+        Boolean bTestState
+
+        // When a job is running getStatus() can be null in rare occurences
+        if (sExecGetStatus) {
+            // compare the job state with the definitions
+            // groovism => [].any{ autogenerated "it" }
+
+            bTestState = DepsConstants.jobState_ok.any { sExecGetStatus.equalsIgnoreCase(it) }
+            if (bTestState) { return JOBDEPS_PROP_STATE_SUCCESS }
+
+            bTestState = DepsConstants.jobState_ko.any { sExecGetStatus.equalsIgnoreCase(it) }
+            if (bTestState) { return JOBDEPS_PROP_STATE_ERROR }
+
+        }
+        return ""
+    }
+
+
+    /**
     * find a job ID from its project, group and job name
     * ref: https://javadoc.io/static/org.rundeck/rundeck-core/5.0.1-20240115/com/dtolabs/rundeck/core/jobs/JobService.html
     * @param oJobSvc : the current JobService
@@ -394,15 +453,15 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @param sTargetJobName : target job name
     * @return : the job definition as object
     */
-    private JobReference rdJob_GetObjFromName(JobService oJobSvc, String sTargetProjectName, String sTargetGroupName, String sTargetJobName) {
-        this.logDebug("plugin:rdJob_GetObjFromName: search for '" + sTargetGroupName + "/" + sTargetJobName + "' in '" + sTargetProjectName + "'  ...")
+    private JobReference rdJob_GetJobFromName(JobService oJobSvc, String sTargetProjectName, String sTargetGroupName, String sTargetJobName) {
+        this.logDebug("plugin:rdJob_GetJobFromName: search for '" + sTargetGroupName + "/" + sTargetJobName + "' in '" + sTargetProjectName + "'  ...")
 
         try {
             return oJobSvc.jobForName(sTargetGroupName, sTargetJobName, sTargetProjectName);
         }
         catch (JobNotFound e) {
             throw new StepException(
-                "plugin:rdJob_GetObjFromName:Error - target job '" + sTargetJobName + "' in group '" + sTargetGroupName + "' was not found in the project '" + sTargetProjectName + "'",
+                "plugin:rdJob_GetJobFromName:Error - target job '" + sTargetJobName + "' in group '" + sTargetGroupName + "' was not found in the project '" + sTargetProjectName + "'",
                 PluginFailureReason.ConfigurationFailure
             )
         }
@@ -419,17 +478,17 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @param dDateTimeAfter : (optional) starting date to search for executions
     * @return : list of the target job executions, when found
     */
-    private java.util.List<ExecutionReference> rdJob_GetJobExecData(JobService oJobSvc, String sTargetProject, String sTargetJobId, String sTargetJobState, ZonedDateTime dDateTimeAfter = null) {
+    private java.util.List<ExecutionReference> rdJob_GetJobSearchExecutions(JobService oJobSvc, String sTargetProject, String sTargetJobId, String sTargetJobState, ZonedDateTime dDateTimeAfter = null) {
         Long nTimeStart = 0
         String sTimeStart = ""
 
-        // the 'since' parameter is a duration with the format "<number>T" having T from this list: h,n,s,d,w,m,y (hour,minute,second,day,week,month,year)
+        // the searchExecutions(..., time) parameter expect a duration with the format "<number>T" having T from this list: h,n,s,d,w,m,y (hour,minute,second,day,week,month,year)
         if (dDateTimeAfter) {
             nTimeStart = dDateTimeAfter.toEpochSecond() - ZonedDateTime.now().toEpochSecond()
             sTimeStart = nTimeStart.toString() + "s"
         }
 
-        // ref: https://github.com/rundeck/rundeck/blob/main/rundeckapp/grails-app/services/rundeck/services/JobStateService.groovy#L139
+        // ref: https://github.com/rundeck/rundeck/blob/main/core/src/main/java/com/dtolabs/rundeck/core/jobs/JobService.java#L81
         // the state parameter can be empty
         return oJobSvc.searchExecutions(sTargetJobState, sTargetProject, sTargetJobId, "", sTimeStart)
     }

@@ -1,5 +1,7 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 // External packages or modules dependencies
 import org.rundeck.storage.api.PathUtil
 import org.rundeck.storage.api.StorageException
@@ -13,13 +15,12 @@ import com.dtolabs.rundeck.core.execution.ExecutionListener
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.time.Duration
 import java.util.TimeZone
 
 import java.util.HashMap;
 
 import java.io.File;
-
-import java.lang.ProcessBuilder;
 
 
 /**
@@ -27,11 +28,34 @@ import java.lang.ProcessBuilder;
 */
 class DepsHelper {
 
+    private DepsHelper() { }    // no instance
+
+
     // ref  J8: https://docs.oracle.com/javase/8/docs/api/java/time/ZonedDateTime.html
     // ref  J8: https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html
     // ref J11: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/ZonedDateTime.html
 
     // Generic functions ---------------------------------------------------------------------------
+
+    /**
+    * test if the given string is a number
+    * @param str: a number as a string
+    * @return : true or false
+    */
+    @SuppressWarnings('ParameterReassignment')
+    static Boolean isNumeric(String str) {
+        if (str == null) { return false }
+        str = str.trim()
+        if (str.startsWith("+") || str.startsWith("-"))  { str = str.substring(2) }
+
+        for (char c : str.toCharArray()) {
+            if (c < "0" || c > "9") {
+                return false
+            }
+        }
+        return true
+    }
+
 
     /**
     * wait for xxx ms with a minimum of 1s - thread blocking
@@ -47,8 +71,8 @@ class DepsHelper {
             System.err.println("DepsHelper:waiting:" + e + ". Probably due to a timeout.\n(" + DepsHelper.dateNowPrettyPrint() + ")")
 
             // ref : https://www.javaspecialists.eu/archive/Issue056-Shutting-down-Threads-Cleanly.html
-            // the exception can be raised by java from another thread, if not catched it will go up into the remaining threads
-            // And as the catched exception has cleared the interrupt flag, it must be called again before finishing
+            // The exception can be raised by java from another thread, if not catched here it will go up into the remaining threads
+            // Also, as the catched exception has cleared the interrupt flag, it must be called again before finishing
             Thread.currentThread().interrupt();
             throw new RuntimeException("Unexpected interrupt", e);
         }
@@ -63,7 +87,7 @@ class DepsHelper {
         if ( System.getProperty("os.name").toLowerCase().contains("windows") ) {
             return System.getenv("COMPUTERNAME")
         }
-        // getenv("HOSTNAME") in java process return null
+        // getenv("HOSTNAME") in a java process returns null
         return DepsHelper.shellExec("hostname")
     }
 
@@ -75,7 +99,6 @@ class DepsHelper {
     static String getJavaVersion() {
         return System.getProperty("java.version")
     }
-
 
 
     /**
@@ -123,7 +146,7 @@ class DepsHelper {
             sStock = oBuffer = oProcess = null
 
         } catch (Exception e) {
-            System.err.println("Error: the following command failed : " + sCommand)
+            System.err.println("Error:shellExec: the following command failed : " + sCommand)
             throw e
         }
 
@@ -136,30 +159,30 @@ class DepsHelper {
     // Custom parameter as command line style function ---------------------------------------------
 
     /**
-    * return the parsed command line arguments <br/>
-    * some required parameters might be specific to one plugin or another
+    * Return the parsed command line arguments <br/>
+    * This is for compatibility with the fist versions of the plugin which was a script receiving parameters on the command line
+    * Notice : some required parameters might be specific to one plugin or another <br />
     * @param sCmdArgs : full command line argument list in a single string
     * @return Object : HashMap of the detected arguments and their values
     * @throws StepException or Exception
     */
+    @SuppressWarnings(['CyclomaticComplexity'])
     static Map cliParamParse(String sCmdArgs) {
+        Boolean bDebug = false
         String[] aData
         Map oRet = new HashMap<>()    // codenarc-disable-line ExplicitHashMapInstantiation
 
         // Too much unstability between the gutted CliBuilder in groovy basic and the apache commons.cli => v1.0 <= from rundeck
         // write a basic cmdline interpreter instead
-        // if ( ! oCli ) { cliParamInit() }
+        if ( sCmdArgs.contains("-debug") ) { bDebug = true; System.err.println("DepsHelper:cliParamParse:parsing command line with values : " + sCmdArgs) }
 
-
-        if ( sCmdArgs.contains("-debug") ) { System.err.println("DepsHelper:cliParamParse:parsing command line with value : " + sCmdArgs) }
-
-        // very basic interpreter
+        // Very basic interpreter
         aData = sCmdArgs.split(" ")
 
         for (Integer i = 0 ; i < aData.length; i++) {
             // allow both "-arg" and "--arg"
             if ( aData[i].startsWith("--") ) { aData[i] = aData[i].replaceFirst("--", "-") }
-            if ( sCmdArgs.contains("-debug") ) { System.err.println("DepsHelper:cliParamParse: param " + aData[i]) }
+            if (bDebug) { System.err.println("DepsHelper:cliParamParse: param " + aData[i]) }
 
             try {
                 switch ( aData[i].toLowerCase() ) {
@@ -220,7 +243,7 @@ class DepsHelper {
                     default:
                         // rundeck can pass additionals spaces as args
                         if ( aData[i].trim() == "" ) { continue; }
-                        // rundeck issue #8509 - sending the variable name as-is when empty instead of an empty string
+                        // rundeck issue #8509 - receiving the Rundeck job option literally ($job.<my_name>) when empty instead of an empty string
                         if ( aData[i].trim() == '\${option.DEPENDENCY_EXTRA_PARAMS}' ) { continue; }    // codenarc-disable-line GStringExpressionWithinString
 
                         throw new StepException(
@@ -374,7 +397,7 @@ class DepsHelper {
 
 
     /**
-    * format a duration in sec to "??h??m??s"
+    * format a duration in sec to "?h?m?s"
     * @param nDurationInSec : number duration in seconds to format
     * @param bRemoveLeadingZero : remove any "0h" or "0h00m" present in the formated result
     * @param sFormatToUSe : (optional) printf format to use - default to "%dh%02dm%02ds" for "?h??m??s"
@@ -391,6 +414,30 @@ class DepsHelper {
         if (bRemoveLeadingZero) { sRet = sRet.replaceAll("^0h(00m)?", "") }
 
         return sRet
+    }
+
+    /**
+    * take a duration in '?h?m?s' format and convert it to seconds
+    * @param sDuration : the duration exprimed in a string
+    * @return integer : the duration in seconds
+    */
+    static Integer durationConvertToSec(String sDuration) {
+        try {
+            // use a dedicated variable due to the error message requiering the unmodified value
+            String sFinalDuration = sDuration.trim().toUpperCase()
+
+            // a simple number => seconds
+            if (DepsHelper.isNumeric(sFinalDuration)) { sFinalDuration = "PT" + sDuration + "S" }
+            // a duration is expected to start with a "P", and "T" in front of the time part
+            if (!sFinalDuration.startsWith("PT")) { sFinalDuration = "PT" + sFinalDuration }
+
+            Duration oTimeDur = Duration.parse(sFinalDuration)
+            return oTimeDur.toSeconds()
+
+        } catch (Exception e) {
+            System.err.println("DepsHelper:durationConvertToSec: badly formatted data, expected a time duration, received " + e.getMessage() + " (full data is : '" + sDuration + "' )" )
+            throw e
+        }
     }
 
     // Workflow messages and other functions -------------------------------------------------------
@@ -411,7 +458,7 @@ class DepsHelper {
         // print an information message each hour
         if ( nElapsedTimeInSec > 60 && ( nElapsedTimeInSec % 3600 ) <= nSleepDurationTimeSec ) {
             // groovy automatically switch to BigDecimal for a math operation => use .round()
-            oLogger.log(2, "Notice (" + DepsHelper.dateNowTimePrint() + ") : Still waiting after " + ( nElapsedTimeInSec / 3600).round(0).toString() + " hour (" + DepsHelper.dateNowTimePrint() + ")" )
+            oLogger.log(2, "Notice (" + DepsHelper.dateNowTimePrint() + ") : Still waiting after " + ( nElapsedTimeInSec / 3600).round(0).toString() + " hour(s)." )
         }
     }
 

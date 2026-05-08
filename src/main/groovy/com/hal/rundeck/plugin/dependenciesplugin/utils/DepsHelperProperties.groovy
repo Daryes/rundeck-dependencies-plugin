@@ -1,5 +1,7 @@
 package com.hal.rundeck.plugin.dependenciesplugin;
 
+// Author : HAL, aka Ogme
+
 // External packages or modules dependencies
 import org.rundeck.storage.api.PathUtil
 import org.rundeck.storage.api.StorageException
@@ -20,6 +22,7 @@ import java.util.HashMap;
 * Class for retrieving the properties values common to the Dependencies plugins - must be instanciated
 */
 class DepsHelperProperties {
+
     static final String PROJ_PROP_PREFIX = "project.";
     static final String FWK_PROP_PREFIX = "framework.";
 
@@ -63,10 +66,11 @@ class DepsHelperProperties {
         // ref : https://javadoc.io/doc/org.rundeck/rundeck-core/latest/com/dtolabs/rundeck/core/execution/utils/ResolverUtil.html
         // ref : https://github.com/rundeck/rundeck/blob/main/core/src/main/java/com/dtolabs/rundeck/core/execution/utils/ResolverUtil.java
         // return ResolverUtil.resolveProperty(sPropName, sDefaultValue, null, oFrameworkProject, oFramework);
-        // => no use about the node object, but ResolverUtil needs it => local implementation
+        // => no use about the node object, but ResolverUtil needs it => define and use a local implementation
 
         String sRet = ""
 
+        // project has priority over framework when both are defined
         if ( oFrameworkProject.hasProperty(PROJ_PROP_PREFIX + sPropName) ) {
             sRet = oFrameworkProject.getProperty(PROJ_PROP_PREFIX + sPropName)
             if ( sRet != "" ) {

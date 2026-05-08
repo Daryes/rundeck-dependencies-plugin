@@ -1,0 +1,56 @@
+- defaultTab: nodes
+  description: |
+    Sleeping job with slot 2 * 2 times
+  executionEnabled: true
+  group: tests-dependency-slots
+  id: e7a4fd05-de0f-4785-b75b-2795606ad09c
+  loglevel: INFO
+  name: Dependency - slots - 6 - sleep s2 + debug + maxwait + force launch
+  nodeFilterEditable: false
+  nodefilters:
+    dispatch:
+      excludePrecedence: true
+      keepgoing: false
+      rankOrder: ascending
+      successOnEmptyNodeFilter: false
+      threadcount: '1'
+    filter: 'name: localhost '
+  nodesSelectedByDefault: true
+  options:
+  - description: 'Job waiting duration, in seconds    '
+    label: Sleep duration
+    name: sleep_duration
+    regex: '[0-9]+'
+    required: true
+    value: '30'
+  - name: DEPENDENCY_EXTRA_PARAMS
+    value: -debug
+  plugins:
+    ExecutionLifecycle: {}
+  scheduleEnabled: true
+  sequence:
+    commands:
+    - configuration:
+        force_launch: 'false'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS}
+        target_project: ${job.project}
+        target_slot: '2'
+      description: deps slot 2
+      nodeStep: false
+      type: dependencies-wait_slot
+    - configuration:
+        force_launch: 'true'
+        optional_params: ${option.DEPENDENCY_EXTRA_PARAMS} -maxWait 60
+        target_project: ${job.project}
+        target_slot: '2'
+      description: deps slot 2
+      nodeStep: false
+      type: dependencies-wait_slot
+    - configuration:
+        command: bash -x -c "sleep ${option.sleep_duration}"
+      description: sleep local
+      nodeStep: true
+      type: localexec
+    keepgoing: false
+    strategy: node-first
+  uuid: e7a4fd05-de0f-4785-b75b-2795606ad09c

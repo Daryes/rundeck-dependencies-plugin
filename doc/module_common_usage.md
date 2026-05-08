@@ -137,7 +137,7 @@ Assuming the jobs were launched around 20h00, this put an ending time around 08h
 With the default flow ending time, this gives more time to fix the jobs that didn't finish correctly before the daily workflow limit is reached.
 
 This is in addition with the generic timeout option available to all jobs.  
-The difference being the generic timeout applies for the full duration of a job, while this timeout is for the dependency step only.
+The difference being the generic timeout  from Rundeck applies for the full duration of a job, while this timeout is for the dependency step only.
 
 
 The waiting time can be changed with either :
@@ -161,7 +161,8 @@ project.dependencies-waitfor.flow-timeout-duration-sec=43200
 
 3. per job, using the DEPENDENCY_EXTRA_PARAMS option with `--maxWait <duration in sec>` which will apply to all steps.  
 
-4. at the step level, in Other options => specify the `--maxWait <duration in sec>` parameter, it will affect only this step.  
+4. at the step level, in Dependency tuning, a text input zone is avaiable to specify a custom duration, affecting this step only.  
+   This option accepts either a number for the full duration in seconds, or a human readable time in the form of `??s` or `??m` up to `??h??m??s`
 
 
 Please note the launch time of the job is the reference date/time for the timeout.

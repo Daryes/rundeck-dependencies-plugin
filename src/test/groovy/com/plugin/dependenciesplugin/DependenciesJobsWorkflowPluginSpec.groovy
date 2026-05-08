@@ -15,9 +15,7 @@ class DependenciesJobsWorkflowPluginSpec extends Specification {
     }
 
     def "check Boolean parameter"() {
-
         given:
-
         def example = new DependenciesJobsWorkflowPlugin()
         def context = getContext(Mock(PluginLogger))
         def configuration = [example:"example123", exampleBoolean:"true"]
@@ -30,9 +28,7 @@ class DependenciesJobsWorkflowPluginSpec extends Specification {
     }
 
     def "run OK"() {
-
         given:
-
         def example = new DependenciesJobsWorkflowPlugin()
         def logger = Mock(PluginLogger)
         def context = getContext(logger)
