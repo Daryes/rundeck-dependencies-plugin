@@ -6,7 +6,7 @@
     self.rdplugin = window.RDPLUGIN["ui-dependencies-wait-workflow"];
     self.pluginName = self.rdplugin.name;
     self.project = appLinks.project_name;  // provided by RD, alternative to jQuery => rundeckPage
-    self.clusterTimePrecisionMinute = self.rdplugin.canvas_schedule_group_precision_minute ?? false;
+    self.clusterTimePrecisionMinute = self.rdplugin.canvas_schedule_group_precision_minute ?? 0;
     self.clusterAttachUnknownNode  = self.rdplugin.canvas_node_unknown_attach_in_time_cluster ?? false;
 
     self.aYesNoStr = {"true": true, "false": false, 
@@ -14,7 +14,7 @@
                       "1": true, "0": false, 
                       "success": true, "error": false
                     };
-    self.aDepTargetType = {"job": 0, "file": 1, "slot": 2, "basic": 3, "ref": 4};
+    self.aDepTargetType = {"job": 0, "file": 1, "slot": 2, "basic": 3, "ref": 4, "stateCond": 3};
     self.aLinkType = {"basiclink": 0, "hardlink": 1, "softlink": 2, "noedgelink": 3};
 
 // #############################################################################
@@ -79,10 +79,10 @@
         if (aJobDef.schedule.time) {
             oRet = aJobDef.schedule.time;
             oRet["simpleLabel"] = aJobDef.schedule.time.hour + ":" + aJobDef.schedule.time.minute + ":" + aJobDef.schedule.time.seconds;
-            oRet["fullLabel"] = ("schedule: " + 
-                                    "year: " + JSON.stringify(aJobDef.schedule.year) + 
-                                    ", month: " + JSON.stringify(aJobDef.schedule.month) + 
-                                    ", " + JSON.stringify(aJobDef.schedule.weekday) + 
+            oRet["fullLabel"] = ("Schedule : " +
+                                    "year: " + JSON.stringify(aJobDef.schedule.year) +
+                                    ", month: " + JSON.stringify(aJobDef.schedule.month) +
+                                    ", " + JSON.stringify(aJobDef.schedule.weekday) +
                                     ", time: " + oRet["simpleLabel"]
                                 ).replaceAll('"', '');
 
@@ -96,10 +96,13 @@
             oRet["hour"] = aSplit[2];
 
             oRet["simpleLabel"] = oRet["hour"] + ":" + oRet["seconds"] + ":" + oRet["minute"];
-            oRet["fullLabel"] = "Crontab: " + aJobDef.schedule.crontab;
+            oRet["fullLabel"] = "Crontab : " + aJobDef.schedule.crontab;
 
         } else {
-            // not supported
+            oRet["simpleLabel"] = "Unsupported";
+            oRet["fullLabel"] = "Schedule : unsupported format";
+            console.log("Notice: the following schedule format is not supported");
+            console.log(aJobDef.schedule);
         };
 
         return oRet;
@@ -124,7 +127,31 @@
         oRet["simpleNotification"] = oRet["simpleNotification"].trim();
         return oRet;
     };
-    
+
+
+    // test if a job has only steps of types : depWait_job or stateConditional. In such case, the job serves only as a flag 
+    function depWaitHelperJobDefIsFlagOnly(aJobDef) {
+        if (aJobDef.hasOwnProperty("custom_is_flag_only")) { return  aJobDef.custom_is_flag_only; };
+
+        var bRet = false;
+        var aFlagOnlyCmds = ["dependencies-wait_job", "job-state-conditional"];
+
+        // TODO - search in the job data its commands
+        if (aJobDef.name.includes("flag_")) {
+            bRet = true;
+            aJobDef.custom_is_flag_only = bRet;
+        };
+
+        return bRet;
+    };
+
+    function depWaitHelperJobNameIsFlagOnly(sJobGroup, sJobName) {
+        // TODO - retrieve the full data of the target job and search in its commands
+        if (sJobName.includes("flag_")) {
+            return true;
+        };
+        return false;
+    }
 
 
     // common settings for the dependency-wait plugins
@@ -132,6 +159,10 @@
         var oRet = {};
 
         oRet.force_launch = self.aYesNoStr[ aStepCmd?.force_launch?.toLowerCase() ?? "false" ]; // the property is optional
+        oRet.max_wait = aStepCmd?.maxWait ? true : false;   // the property is optional
+        if (aStepCmd?.optional_params && aStepCmd.optional_params.toLowerCase().includes("-maxwait ")) {
+                oRet.max_wait = true;
+        };
         return oRet;
     };
 
@@ -150,33 +181,45 @@
         oRet.project = self.convertJobVars( aStepCmd.target_project, self.project, oFullJobDef );
         oRet.group = self.convertJobVars( aStepCmd.target_group, self.project, oFullJobDef );
         oRet.name = self.convertJobVars( aStepCmd.target_job, self.project, oFullJobDef );
-        oRet.link_status = self.aYesNoStr[aStepCmd.status_job];
+        oRet.link_status = self.aYesNoStr[aStepCmd.status_job];  // true for success, false for error
+        oRet.halt_opposite_state = self.aYesNoStr[aStepCmd.halt_opposite_state ?? "false"];
 
         var nLinkType = self.aLinkType.hardlink;
         if (aStepCmd.softlink.indexOf("softlink") !== -1) { nLinkType = self.aLinkType.softlink; };
         oRet.link_type = nLinkType;
         
-        // retrieve the job id from the recorded list
-        var sTargetJobId = depWaitHelperJobGetNameToId(oRet.group, oRet.name);
+        // retrieve the target job id from the recorded list
         var bTargetJobIdFound = true;
+        var sTargetJobId = depWaitHelperJobGetNameToId(oRet.group, oRet.name);
 
         // generate a custom uid when the job was not found in the current project
-        // not using .length on purpose 
+        // not using .length on purpose
         if (sTargetJobId == "") {
+            bTargetJobIdFound = false;
             sTargetJobId = oRet.project + "#" + oRet.group + "/" + oRet.name;
             sTargetJobId = "project_" + depWaitHelperJobGenerateHash(sTargetJobId);
-            bTargetJobIdFound = false;
         };
-
         oRet.custom_id = sTargetJobId;
         oRet.custom_job_id_found = bTargetJobIdFound;
 
-        // warning for a job from the current project which does not exist
+
+        // verify if this job or the target job is a flag job, meaning only links, then set the edge weight
+
+        oRet.nWeight = 5;
+        /** TODO
+        * var bIsFlagThisJob = depWaitHelperJobDefIsFlagOnly(oFullJobDef);
+        * var bIsFlagTargetJob = false;
+        * if (bTargetJobIdFound) { bIsFlagTargetJob = depWaitHelperJobNameIsFlagOnly(oRet.group, oRet.name); };
+        * if (bIsFlagThisJob || bIsFlagTargetJob) { oRet.nWeight = 1; };
+        */
+
+        // warning when a job from the current project does not exist
         if (!oRet.custom_job_id_found) {
             // record the data to create a logical node used later for the edges
             if (self.clusterAttachUnknownNode) { oRet.custom_attach_to_cluster_schedule = oMinimalJobDef?.schedule ?? {}; };
             depWaitGraphDataRecordNodeList(oRet);
         };
+
 
         // record the data of the graph edges to create them after all other node objects
         depWaitGraphDataRecordEdgeList({
@@ -185,7 +228,10 @@
             nLinkType: oRet.link_type,
             bLinkStatus: oRet.link_status,
             bForce: oRet.force_launch,
+            bMaxWait: oRet.max_wait,
+            bHalt: oRet.halt_opposite_state,
             nEntityType: oRet.custom_type,
+            nWeight: oRet.nWeight,
         });
 
         return oRet;
@@ -215,6 +261,7 @@
         };
         
         oRet.link_type = self.aLinkType.hardlink;
+        oRet.nWeight = 5;
 
         oRet.custom_id = "file_" + 
             depWaitHelperJobGenerateHash(oRet.target_host) + 
@@ -235,7 +282,9 @@
             nLinkType: oRet.link_type,
             bLinkStatus: true,
             bForce: oRet.force_launch,
+            bMaxWait: oRet.max_wait,
             nEntityType: oRet.custom_type,
+            nWeight: oRet.nWeight,
         });
 
         return oRet;
@@ -261,6 +310,96 @@
         oMinimalJobDef.custom_slot.push(oRet.slot);
 
         return oRet;
+    };
+
+
+    function depWaitHelperJobDefStepCommand_jobStateConditional(oMinimalJobDef, oFullJobDef, aStepCmd) {
+        var oRet = {};
+        var sTargetJobId = "";
+
+        oRet.custom_type = depWaitHelperJobGetDependencyType().stateCond;
+        var sTargetJobId = "";
+        if (aStepCmd.jobUUID) {
+            var oJobFromUid = depWaitHelperJobGetJobDataFromId(aStepCmd.jobUUID);
+            if (oJobFromUid) {
+                oRet.project = oJobFromUid.project;
+                oRet.group = oJobFromUid.group;
+                oRet.name = oJobFromUid.name;
+                sTargetJobId = aStepCmd.jobUUID;
+            };
+
+        } else {
+            // the project can be missing
+            if (aStepCmd.jobProject) {
+                oRet.project = self.convertJobVars( aStepCmd.jobProject, self.project, oFullJobDef );
+            } else {
+                oRet.project = self.project;
+            };
+
+            // the group can be missing and set in the name using the form : "group/name"
+            if (aStepCmd.jobGroup) {
+                oRet.group = self.convertJobVars( aStepCmd.jobGroup, self.project, oFullJobDef );
+                oRet.name = self.convertJobVars( aStepCmd.jobName, self.project, oFullJobDef );
+            } else {
+                var nSplitPos = aStepCmd.jobName.lastIndexOf("/");
+                oRet.group = self.convertJobVars( aStepCmd.jobName.slice(0, nSplitPos), self.project, oFullJobDef );
+                oRet.name = self.convertJobVars( aStepCmd.jobName.slice(nSplitPos + 1), self.project, oFullJobDef );
+            };
+            sTargetJobId = depWaitHelperJobGetNameToId(oRet.group, oRet.name);
+        };
+
+
+        oRet.link_type = self.aLinkType.basiclink;
+
+        // retrieve the job id from the recorded list
+        var bTargetJobIdFound = true;
+        // already retrieved before due to the step able to use the UUID
+
+        // generate a custom uid when the job was not found in the current project
+        // not using .length on purpose
+        if (sTargetJobId == "") {
+            bTargetJobIdFound = false;
+            sTargetJobId = oRet.project + "#" + oRet.group + "/" + oRet.name;
+            sTargetJobId = "project_" + depWaitHelperJobGenerateHash(sTargetJobId);
+        };
+        oRet.custom_id = sTargetJobId;
+        oRet.custom_job_id_found = bTargetJobIdFound;
+
+        oRet.link_status = true;
+        if ( (aStepCmd.executionState.toLowerCase() == "succeeded" && aStepCmd.condition.toLowerCase() != "equals")
+            || (aStepCmd.executionState.toLowerCase() != "succeeded" && aStepCmd.condition.toLowerCase() == "equals")
+        ) {
+            oRet.link_status = false;
+        };
+
+
+        oRet.halt = self.aYesNoStr[aStepCmd.halt];
+        oRet.fail = false;
+        if (oRet.halt) {
+            oRet.fail = self.aYesNoStr[aStepCmd.fail];
+        }
+
+
+        // warning when a job from the current project does not exist
+        if (!oRet.custom_job_id_found) {
+            // record the data to create a logical node used later for the edges
+            if (self.clusterAttachUnknownNode) { oRet.custom_attach_to_cluster_schedule = oMinimalJobDef?.schedule ?? {}; };
+            depWaitGraphDataRecordNodeList(oRet);
+        };
+
+        // record the data of the graph edges to create them after all other node objects
+        depWaitGraphDataRecordEdgeList({
+            sSourceId: oFullJobDef.id,
+            sTargetId: oRet.custom_id,
+            nLinkType: oRet.link_type,
+            bLinkStatus: oRet.link_status,
+            bForce: false,
+            bHalt: oRet.halt,
+            bFail: oRet.fail,
+            nEntityType: oRet.custom_type,
+        });
+
+        return oRet
     };
 
 
@@ -320,7 +459,7 @@
         }
 
         // generate a custom uid when the job was not found in the current project
-        // not using .length on purpose 
+        // not using .length on purpose
         var bTargetJobIdFound = true;
         if (sTargetJobId == "") {
             sTargetJobId = oRet.project + "#" + oRet.group + "/" + oRet.name;
@@ -360,12 +499,9 @@
     // generate the correct ID for a schedule group
     // also manage a cache to reduce the time spent given this is requested multiple times per job : job, group cluster, time cluster, ...
     self.aGraphDataRecordGroupTimeFormat = new Map();
-    function depWaitGraphHelperGroupTimeFormat(sSuffix, sMinute = "") {
-        if (!self.clusterTimePrecisionMinute) { 
-            sMinute = ""; 
-        } else if (sMinute == "") {
-            sMinute = "00";
-        };
+    function depWaitGraphHelperGroupTimeFormat(sSuffix, sMinute = "00") {
+        // do not print minutes when not requested
+        if (self.clusterTimePrecisionMinute == 0) { sMinute = ""; };
 
         var sCacheIndex = '#' + sSuffix + '#' + sMinute + '#';
         var sRet = self.aGraphDataRecordGroupTimeFormat?.get(sCacheIndex, sRet) ?? "";
@@ -373,7 +509,7 @@
         if (sRet == "") {
             if (sMinute.length > 0 && !Number.isNaN(sMinute)) {
                 var nMinute = parseInt(sMinute);
-                nMinute = Math.floor(nMinute / 15) * 15;
+                nMinute = Math.floor(nMinute / self.clusterTimePrecisionMinute) * self.clusterTimePrecisionMinute;
                 sMinute = nMinute.toString();
             };
 
@@ -394,7 +530,7 @@
         };
 
         var sRet = "";
-        for (e of [{d: oHour, s: "h"}, {d: oMinute, s: "m"}, {d: oSecond, s: "s"}]) {
+        for (let e of [{d: oHour, s: "h"}, {d: oMinute, s: "m"}, {d: oSecond, s: "s"}]) {
             if (typeof e.d == "string") {
                 if (e.d.length == 0) { continue; };
                 if ( /[\*\/]/.test(e.d) ) { return "*/*"; }            // special case for incremental schedules : * or ?/num
@@ -420,11 +556,11 @@
         aJobVarParms.set("job.group", aJobDef.group);
         aJobVarParms.set("job.name", aJobDef.name);
 
-        for (oOpt of aJobDef.options ?? [] ) {
+        for (let oOpt of aJobDef.options ?? [] ) {
             aJobVarParms.set("option." + oOpt.name, oOpt.value);
         };
 
-        for (sIdx of aJobVarParms.keys()) {
+        for (let sIdx of aJobVarParms.keys()) {
             sText = sText.replace("\${" + sIdx + "}", aJobVarParms.get(sIdx));
             if (!sText.includes('\${')) { break; };
         };

@@ -111,7 +111,8 @@ They are also described in the following nodes section.
 | Arrow | Information | | Arrow | Information |
 | - | - | - | - | - |
 | ![Arrow normal](module_wait_workflow_ui_arrow_normal.png) | Standard dependency, also named hardlink,<br /> waiting until the success state is reached || ![Arrow normal](module_wait_workflow_ui_arrow_soft.png) | Soft dependency, activated only if the target job is already present, <br />in a running or finished state (success or error) |
-| ![Arrow normal](module_wait_workflow_ui_arrow_forced.png) | Forced dependency, which will be skipped when a specific duration is reached || ![Arrow normal](module_wait_workflow_ui_arrow_error.png) | Dependency or link to a job with an error status |
+| ![Arrow error](module_wait_workflow_ui_arrow_error.png) | Standard dependency (hardlink) to a job with an error status, can also be a soft dependency, and / or forced. || ![Arrow normal](module_wait_workflow_ui_arrow_forced.png) | Forced dependency, which will be skipped when a specific duration is reached |
+
 | |
 | ![Arrow normal](module_wait_workflow_ui_arrow_file.png) | Dependency to a file, can also be forced |
 | ![Arrow normal](module_wait_workflow_ui_arrow_jobref.png) | A job launched by the "job reference" module used in a step or with an error handler  |
@@ -133,7 +134,7 @@ Some other icons can appear on a node depending of its configuration.
 | Marker | Type of node | Information |
 | - | - | - |
 | ![marker workflow slot](module_wait_workflow_ui_marker-workflow-slot.png) | Job | One of the steps use the slot module. The visible number is changed to the selected slot(s), and can show multiple of them if necessary. |
-| ![marker notifications](module_wait_workflow_ui_marker-notifications-all.png) | Job |  One or multiple notifications is activated on the job. Only those activated are present in the marker.<br/>The abbreviations stand for : **St**art, **Su**ccess, **Fa**ilure, **Av**erage duration |
+| ![marker notifications](module_wait_workflow_ui_marker-notifications-all.png) | Job |  One or multiple notifications is activated on the job. Only those activated are present in the marker.<br/>The abbreviations stand for `St`art, `Su`ccess, `Fa`ilure, `Av`erage duration |
 | ![marker jobref](module_wait_workflow_ui_marker-jobref.png) | Job |  Visible on a dummy node, reflecting a job launched by the step module "Job reference". |
 | ![marker disabled](module_wait_workflow_ui_marker-execution-disabled.png) | Job |  Visible on a job which has its execution fully disabled. The node for the job is also greyed out.  |
 | ![marker unknown](module_wait_workflow_ui_marker-warning-unknown.png) | Job |  Visible on an unknown job, when its definition for the current project was not found. <br />Usually an anomaly in the dependency configuration of the step, like an extra space in the name. |
@@ -141,12 +142,15 @@ Some other icons can appear on a node depending of its configuration.
 | ![markers flag and hash](module_wait_workflow_ui_marker-file-flag-hash.png) | File | When the presence of a flag file is activated in the definition, a small flag will be present as a marker.<br />Also, if a hash control value is expected and active, the green hash will also be visible. |
 
 
+**Limitation :** any job from other project is marked as external, and its definition (name, group, ...) will not be retrieved, nor validated against the other project.
+
+
 ## Diagram librairies used
 
 For the curious :  
 * Diagram layout : [DagreJS](https://github.com/dagrejs) v3.0.0 (graphlib v4 is integrated)
 * Diagram rendering : [Dagre-3d](https://github.com/dagrejs) v0.6.4
-  modified to support Dagre v3 (integrated) & D3js v7 (external)
+  modified and rebuild to support Dagre v3 (integrated) & D3js v7 (external)
 * Diagram vizualization : [D3js](https://d3js.org/) v7.9.0
 
 While DagreJs is extremely powerfull for the automatic placement of the nodes, it is also very limited, if not lacking, when asking for more precision.  

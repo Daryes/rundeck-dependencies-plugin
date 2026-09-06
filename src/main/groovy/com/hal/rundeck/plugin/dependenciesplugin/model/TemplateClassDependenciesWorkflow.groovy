@@ -313,7 +313,7 @@ abstract class DependenciesWorkflowTemplate implements StepPlugin {
     * same as loggerNotice with the current date/time inserted as a suffix
     */
     void loggerNoticeWithDateTime(String sText) {
-        String sRet = sText + " (" + DepsHelper.dateNowPrettyPrint() + ")"
+        String sRet = sText + " " + noticeEndedTimeFormatted()
         loggerNotice( sRet.trim() )
     }
 
@@ -516,7 +516,7 @@ abstract class DependenciesWorkflowTemplate implements StepPlugin {
         Boolean bExitSuccess = false
         if (sHaltExitState.equalsIgnoreCase("success")) { bExitSuccess = true }
 
-        logFinishMessage("Halt requested with this job final state set to => " + sHaltExitState + "\nAll remaining steps for this job will be ignored.")
+        logFinishMessage("Halt requested with this job final state set to => " + sHaltExitState + "\nAll remaining steps of this job will be ignored.")
         oStepContext.getFlowControl().Halt(bExitSuccess)
     }
 
@@ -538,7 +538,7 @@ abstract class DependenciesWorkflowTemplate implements StepPlugin {
             // it seems it is not possible to set a proper timeout directly, the running context must be updated by updating "<RunContext> runContext.timeout = 1"
             // see if "<PluginStepContext> context.getFlowControl().Halt(statusString)" is not better suited
             throw new StepException(
-                "Timeout reached and " + sMsgForNoDepResolved + " => abort\n(" + DepsHelper.dateNowPrettyPrint() + ")",
+                "Timeout reached and " + sMsgForNoDepResolved + " => abort\n" + noticeEndedTimeFormatted(),
                 PluginFailureReason.TimedOut
             )
         }
@@ -558,6 +558,15 @@ abstract class DependenciesWorkflowTemplate implements StepPlugin {
         if (sFinalMessage.trim().length() > 0) { loggerNotice(sFinalMessage) }
         loggerNoticeWithDateTime("")        // print only the date/time
         if (bDecorate) { loggerNotice(DepsConstants.stdout_line_hash) }
+    }
+
+
+    /**
+    *  return the formatted ending time and duration
+    */
+    String noticeEndedTimeFormatted() {
+        Integer nElapsedTimeInSec = ZonedDateTime.now().toEpochSecond() - dTimeFlowStarted.toEpochSecond()
+        return "(Ended at: " + DepsHelper.dateNowPrettyPrint() + " | Duration: " + DepsHelper.formatElapsedTime(nElapsedTimeInSec, true)  + ")"
     }
 
 

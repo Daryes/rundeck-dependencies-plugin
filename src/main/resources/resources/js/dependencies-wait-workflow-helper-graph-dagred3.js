@@ -5,7 +5,6 @@
     var self = this;
     self.rdplugin = window.RDPLUGIN["ui-dependencies-wait-workflow"];
     self.pluginName = self.rdplugin.name;
-    self.clusterTimePrecisionMinute = self.rdplugin.canvas_schedule_group_precision_minute ?? false;
     self.graphLayoutConstraints = [];       // format: [{left: "nodeA", right: "nodeB"}, ...]
     self.graph = {};                        // updated in depWaitGraphInit()
 
@@ -22,6 +21,8 @@
         // ref: https://github.com/dagrejs/dagre/wiki#configuring-the-layout
         // ref: https://github.com/dagrejs/graphlib/wiki/API-Reference#graph-concepts
 
+        depWaitLog("depWaitGraphDagreInit: used versions are DagreD3 v" + dagreD3.version + " and D3js v" + d3.version);
+
         self.graph.g = new dagreD3.graphlib.Graph({
             directed: true,                     // default
             compound: true,                     // allow clusters (groups of nodes)
@@ -32,6 +33,8 @@
                 align: "",                      // Alignment for rank nodes - default : "", can be UL, UR, DL, or DR, where U = up, D = down, L = left, and R = right
                 rankalign: "center",            // Alignment for same rank nodes - default : "center", can be 'top' | 'center' | 'bottom' | undefined;
                 ranker: "network-simplex",      // Type of algorithm to assigns a rank - default : "network-simplex", other : "tight-tree", "longest-path" but might fail on complex graphs
+                // nodesep: <int>,              // undocumented - node separation distance
+                // edgesep: <int>,              // undocumented - edge separation distance ?
             })
             .setDefaultEdgeLabel(function() { return {}; });
     };
@@ -62,7 +65,7 @@
         * Aaaannnnnnnnd that's not enough : dagre does not support the removal of clusters.
         * So instead, recreate a new graph while removing all svg/html/variables elements of the previous one.
         * Hence why the other functions do not have a presence check and are fully executed.
-        * The removeNode/Edge() is still applied to clear the memory
+        * The removeNode/Edge() is still applied to clear graphlib
         */
         d3.select(oHtmlCanvas.prop("nodeName") + "#" + oHtmlCanvas.attr("id")).select("*").remove();
         self.graph = {};
@@ -71,7 +74,7 @@
 
     // called before render()
     function depWaitGraphDagreLayout() {
-        depWaitLog("depWaitGraphDagreLayout: graph layout last updade before rendering");
+        depWaitLog("depWaitGraphDagreLayout: graph layout last update before rendering");
 
         // ref: https://github.com/dagrejs/dagre/pull/302
         dagreD3.dagre.layout(self.graph.g, {constraints: self.graphLayoutConstraints});
@@ -81,13 +84,14 @@
     }
 
 
-    // @param oHtmlCanvas : the svg DOM element
-    // @param oHtmlCanvasHolder : the parent (or grandparent) DOM element containing the canvas, to resize and make visible
+    // @param oHtmlCanvas : the jQuery svg element for the diagram
+    // @param oHtmlCanvasHolder : the parent (or grandparent) jQuery element containing the canvas, to resize and make visible
     var depWaitGraphDagreRender = (oHtmlCanvas, oHtmlCanvasHolder) => {
         depWaitLog("depWaitGraphDagreRender: graph renderer configuration using D3");
 
         // ref: https://github.com/dagrejs/dagre-d3/wiki#demos
         self.graph.render = new dagreD3.render();
+
         self.graph.svg = d3.select(oHtmlCanvas.prop("nodeName") + "#" + oHtmlCanvas.prop("id")),
             self.graph.inner = self.graph.svg.append("g");
         
@@ -102,23 +106,30 @@
         oHtmlCanvas.parent().width(oHtmlCanvasHolder.width() * 0.97);
         
 
+        // call the minimap creation
+        if ( typeof window["depWaitGraphD3Minimap"] === "function" ) { depWaitGraphD3Minimap(oHtmlCanvas); };
+
+
         depWaitLog("depWaitGraphDagreRender: graph zoom support");
         self.graph.zoom = d3.zoom()
-            /* .on("zoom", function() {    // D3 v5
-                self.graph.inner.attr("transform", d3.event.transform); 
+            .scaleExtent([0.05,5])
+            /* // D3 v5
+            .on("zoom", function() { self.graph.inner.attr("transform", d3.event.transform); });
              */
-            .on("zoom", function(e) {   // D3 v7
-                self.graph.inner.attr("transform", e.transform);
+             // D3 v7
+            .on("zoom", function zoomGraph(e) { 
+                self.graph.inner.attr("transform", e.transform); 
+                if ( typeof window["depWaitGraphD3MinimapZoomEvent"] === "function" ) { depWaitGraphD3MinimapZoomEvent(e); };
             });
         self.graph.svg.call(self.graph.zoom);
         
         
         // must be after the svg global size is set and after the zoom is activated
         depWaitLog("depWaitGraphDagreRender: graph initial scale and center");
-        var fInitialScale = 0.50;
+        var fInitialScale = 0.25;
         
         var nXCenterOffset = (oHtmlCanvas.width() - self.graph.g.graph().width * fInitialScale) / 2;
-        var nYCenterOffset = (oHtmlCanvas.height() - self.graph.g.graph().height * fInitialScale) / 1.5;
+        var nYCenterOffset = (oHtmlCanvas.height() - self.graph.g.graph().height * fInitialScale) / 2;
         self.graph.svg.call(
             self.graph.zoom.transform, 
             d3.zoomIdentity.translate(nXCenterOffset, nYCenterOffset).scale(fInitialScale)
@@ -144,10 +155,11 @@
                 label: "Group: " + sJobGroup,
                 labelType: "text",
                 clusterLabelPos: 'top',
-                class: "cluster-group-jobs",         // this is ignored on clusters, hence using *style : https://github.com/dagrejs/dagre-d3/issues/420
+                class: "cluster-group-jobs",         // this is ignored on clusters, hence using .style : https://github.com/dagrejs/dagre-d3/issues/420
                 style: 'fill: var(--colors-gray-200);',
-                rank: 99,                           // TODO: does rank can prevent the single colum effect with "...g.children(sParentClusterId).length" 
-                // labelStyle: "see CSS",
+                rank: 99,                           // TODO: verify if rank can prevent the single colum effect with "...g.children(sParentClusterId).length" 
+                // labelStyle: "see the CSS file",
+                // rx: ry: both are ignored on clusters
             });
             self.graph.g.setParent(sGroupId, sParentClusterId);
         };
@@ -199,8 +211,6 @@
             padding: 0,             // also : paddingLeft paddingRight paddingTop paddingBottom
             class: (sClassOverride == "" ? oLabelHtml.nodeClass : sClassOverride),
             rank: 5,
-            rx: 7,
-            ry: 7,
         });
     };
 
@@ -224,17 +234,18 @@
             padding: 0,             // also : paddingLeft paddingRight paddingTop paddingBottom
             class: oLabelHtml.nodeClass,
             rank: 1,
-            rx: 40,
-            ry: 40,
         });
     };
     
 
     // Final label construction
-    // when using labelType=html, Dagre-d3 will compute a box with vertical position and size redefined each time, depending of the length and width of the text
+    // when using labelType=html, Dagre-d3 or the SVG object will compute a fixed box with vertical position and size redefined each time, 
+    // depending of the text at a fixed size, ignoring any CSS rule
     // => using SVG instead of html will keep the size as defined, without alteration
     // when using SVG, an object is expected => no templating, keep the compute low
     function depWaitGraphDagreDefineCanvasLabel({sLabel, nWidth, nHeight, sClass = "label"}={}) {
+        if (!sLabel || sLabel == "") { return false };
+
         var oLabel = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
         oLabel.setAttribute("width",  nWidth.toString());
         oLabel.setAttribute("height", nHeight.toString());
@@ -251,23 +262,33 @@
 
     // generic edge - named optional parameters - arrowhead = "normal", "vee", "undirected"
     function depWaitGraphDagreSetEdge(sJobIdSrc, sJobIdDest, {sName = "", sLabel = "", sClass = "", nWeight = 1, sArrowhead = "vee"}={} ) {
+        var nEdgeLabelHeight = 30;
+        if (sLabel.indexOf("fa-border") > -1 || sLabel.indexOf("glyphicon") > -1) { nEdgeLabelHeight = 1.33 * nEdgeLabelHeight; }
 
+        var nEdgeLabelWidth = nEdgeLabelHeight * 3;
+        var oEdgeLabel = depWaitGraphDagreDefineCanvasLabel({sLabel: sLabel, nWidth: nEdgeLabelWidth, nHeight: nEdgeLabelHeight})
+
+
+        // ref label: https://github.com/dagrejs/dagre/blob/master/lib/types.ts#L44
         // ref curves : https://d3js.org/d3-shape/curve#curves
         // sName is only used for multigraph duplicates, ignored if missing
         // notice : for multigraph, the documentation is directing to "{name: ...}", while "name" must also be in the core parameters at the end
         self.graph.g.setEdge(sJobIdSrc, sJobIdDest, {
-            name: sName,                // required for multigraph
-            label: sLabel,
-            labelType: "html",
-            id: sName,                  // undocumented, add the desired ID to the DOM
+            name: sName,                    // required for lookup using the node id to return a name for the edge
+            id: sName,                      // undocumented, add the desired ID to the DOM
             class: sClass,
+            label: (oEdgeLabel) ? oEdgeLabel : "",
+            labelType: (oEdgeLabel) ? "svg" : "html",
+            labelpos: "c",                  // either "r"ight, "l"eft, or "c"enter
+            labelId: sName,                 // undocumented, add the desired ID to the label DOM
             arrowhead: sArrowhead,
             arrowheadClass: ("arrowhead " + sClass).trim(),
-            // curve: d3.curveStepBefore,  // <= better for TB orientation but need the connectors to be only on 2 sides, and not all 4
+            // curve: d3.curveStepBefore,   // <= better for TB orientation but need to be round and with the connectors only on 2 sides, not all 4 as currently
             curve: d3.curveBasis,
+            // curve: d3.curveBumpX,        // Bezier effect
             weight: nWeight,
             minlen: 2,
-        }, sName);                      // required for multigraph
+        }, sName);                          // required for multigraph support, always last
     };
 
 
@@ -281,7 +302,7 @@
             arrowhead: "undirected",
             class: "schedule-link",
             minlen: nMinLen,
-            weight: self.graph.g.edgeCount() + 10,  // = 100 ?
+            weight: self.graph.g.edgeCount() + 10,  // + 100 ?
         });
     };
 
@@ -386,8 +407,14 @@
         // ref: https://github.com/dagrejs/graphlib/wiki/API-Reference#json-write
         return dagreD3.graphlib.json.write(self.graph.g);
     };
-    
+
     // generate a graph from a json definition
     function depWaitGraphDagreBackupLoad(sGraphJsonBackup) {
         self.graph = dagreD3.graphlib.json.read(JSON.parse(sGraphJsonBackup));
     };
+
+
+// Custom paths #############################################################
+// ref: https://stackoverflow.com/questions/60293272/drawing-beziercurve-in-d3-js
+// Also : ref: https://stackoverflow.com/questions/31454123/positioning-the-edges-using-dagre-d3
+// not implemented

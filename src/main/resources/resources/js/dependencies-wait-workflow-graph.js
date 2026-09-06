@@ -5,15 +5,36 @@
     var self = this;
     self.rdplugin = window.RDPLUGIN["ui-dependencies-wait-workflow"];
     self.pluginName = self.rdplugin.name;
-    self.clusterTimePrecisionMinute = self.rdplugin.canvas_schedule_group_precision_minute ?? false;
+    self.clusterTimePrecisionMinute = self.rdplugin.canvas_schedule_group_precision_minute ?? 0;
     self.clusterTimeCreateAll = self.rdplugin.canvas_schedule_group_create_all ?? "false";
     self.htmlJobLabelShowHrefLink = self.rdplugin.canvas_job_label_show_href_link ?? "false";
     self.htmlCanvasTooltip = document.getElementById(self.rdplugin.canvas_tooltip);
+    self.htmlEdgeLabelShow = self.rdplugin.canvas_edge_labels ?? false;
+
+    self.htmlTagDataPrefix = "data-uidww"
+    self.htmlTagDataTooltip = self.htmlTagDataPrefix + "-tooltip"
+    self.htmlTagDataType = self.htmlTagDataPrefix + "-type"
 
     self.project = appLinks.project_name;  // provided by RD, alternative to jQuery => rundeckPage
     self.rdUrlScheduledExecutionShow = appLinks.scheduledExecutionDetailFragment.replace("/detailFragment", "/show");   // appLinks.scheduledExecutionShow does not exist
 
+    self.cookieName = {"project": self.pluginName + "_project", "graph": self.pluginName + "_graph"}
+
     self.aWarningType = {"none": 0, "warning": 1, "question": 2, "exclamation": 3 };
+
+    // FA icons depending of the element class - only those used multiple times
+    self.aLinkIcons = { "link-success": "far fa-arrow-alt-circle-right fa-border",
+                        "link-force": "fas fa-angle-double-right fa-border",
+                        "link-wait": "far fa-clock fa-border",
+                        "link-error": "fas fa-arrow-circle-right fa-border",
+                        "link-errorhandler": "fas fa-redo-alt fa-flip-horizontal fa-border",
+                        "link-halt": "fas fa-exclamation fa-border",
+                        "link-fail": "fas fa-times-circle fa-border",
+                        // "link-soft": "",    // no icon
+                        "reflink": "glyphicon glyphicon-book",
+                        // "reflink": "fas fa-book fa-border",
+                        "statelink": "fas fa-sort fa-border",
+                        };
 
 
 // #############################################################################
@@ -31,14 +52,26 @@
     */    
     
     function depWaitGraphCanvasInit(oHtmlCanvas) {
+        var bFullInit = true;
         // for refresh, it is required to clear all recorded elements to get a new canvas to draw upon
         self.aGraphDataRecordObjectList.clear();
         self.aGraphDataRecordEdgeList.clear();
         // depWaitGraphHelperClearTimeFormat();  <= not required, the data is generic
 
         depWaitGraphDagreClearForRefresh(oHtmlCanvas);
+        depWaitGraphD3MinimapClearForRefresh(oHtmlCanvas);
 
-        depWaitGraphDagreCanvasInit();
+        /* TODO : cache of the graph 
+        var sCookieProject = depWaitGraphSessionJarGetProject();
+        if (sCookieProject && sCookieProject == self.project) {
+            bFullInit = !depWaitGraphSessionJarGetGraphData();
+        }
+        */
+        if (bFullInit) {
+            depWaitGraphDagreCanvasInit();
+        };
+        
+        return bFullInit;
     };
 
 
@@ -58,6 +91,7 @@
     
     var depWaitGraphRender = (oHtmlCanvas, oHtmlCanvasHolder) => {
         depWaitGraphDagreRender(oHtmlCanvas, oHtmlCanvasHolder);
+        // depWaitGraphD3Minimap(oHtmlCanvas);
 
         depWaitGraphJsAddToSvgPath(oHtmlCanvas);
     }
@@ -119,19 +153,21 @@
         var aLinkTypes = depWaitHelperJobGetLinkType();
 
         self.aGraphDataRecordEdgeList.forEach( (oEdge, nIdx) => {
+            if (!oEdge.hasOwnProperty("nWeight")) { oEdge.nWeight = 2; };
+
             switch(oEdge?.nEntityType ?? aNodeTypes.job ) {
                 case aNodeTypes.job:
                     switch (oEdge?.nLinkType ?? aLinkTypes.basiclink) {
                         case aLinkTypes.basiclink:
-                            depWaitGraphSetEdgeBasic(oEdge.sTargetId, oEdge.sSourceId, oEdge.sEdgeId, oEdge.bLinkStatus);
+                            depWaitGraphSetEdgeBasic(oEdge);
                             break;
 
                         case aLinkTypes.hardlink:
-                            depWaitGraphSetEdgeHard(oEdge.sTargetId, oEdge.sSourceId, oEdge.sEdgeId, oEdge.bForce, oEdge.bLinkStatus);
+                            depWaitGraphSetEdgeHard(oEdge);
                             break;
 
                         case aLinkTypes.softlink:
-                            depWaitGraphSetEdgeSoft(oEdge.sTargetId, oEdge.sSourceId, oEdge.sEdgeId, oEdge.bForce, oEdge.bLinkStatus);
+                            depWaitGraphSetEdgeSoft(oEdge);
                             break;
                         
                         default:
@@ -140,11 +176,15 @@
                     break;
 
                 case aNodeTypes.ref:
-                    depWaitGraphSetEdgeJobRef(oEdge.sTargetId, oEdge.sSourceId, oEdge.sEdgeId, oEdge.bLinkStatus, oEdge.bIsErrorHandler);
+                    depWaitGraphSetEdgeJobRef(oEdge);
                     break;
 
                 case aNodeTypes.file:
-                    depWaitGraphSetEdgeFile(oEdge.sTargetId, oEdge.sSourceId, oEdge.sEdgeId, oEdge.bForce);
+                    depWaitGraphSetEdgeFile(oEdge);
+                    break;
+
+                case aNodeTypes.stateCond:
+                    depWaitGraphSetEdgeJobState(oEdge);
                     break;
             };
         });
@@ -153,58 +193,77 @@
 
 // Javascript to SVG elements ##################################################
 
-    // get a handle to the given global css rule - put in a function as used at different location
-    function depWaitGraphJsHelperSvgClickVisibilityCss() {
-        return self.getCSSRule( 
-                    "#" + self.svgClickVisibilityCssId + " ." + self.svgClickVisibilityToggleClass + ":not(.toggle-visible-protect)", 
-                    { bRemoteRulesOnly: true }
-                );
-    };
-
-
-    // dedicated function due to the refresh
-    function depWaitGraphJsHelperClickNodeFocusClear() {
-        if (self.svgClickVisibilityCss) { self.svgClickVisibilityCss.style.filter = "opacity(1)"; };
-    };
-
-
+    // add js event to SVG elements - the functions are for now independant and will add their own properties on the svg objects
     function depWaitGraphJsAddToSvgPath(oHtmlCanvas) {
         // ref: https://dagrejs.github.io/project/dagre-d3/latest/demo/hover.html
         // ref: https://codepen.io/billdwhite/pen/OJLeLR
         var oSvgInner = depWaitGraphDagreGetSvgInner();
 
-        // add tooltip for edges on hover 
-        var oSvgElts = oSvgInner.selectAll("g.edgePaths .joblink, g.edgePaths .filelink, g.edgePaths .reflink");
-        oSvgElts.selectAll("path, marker").each( function() {
-            this.setAttribute("onmousemove", 'depWaitGraphJsTooltipShow(evt, "link");');
-            this.setAttribute("onmouseout", 'depWaitGraphJsTooltipHide();');
-        });
-        depWaitGraphJsTooltipHide();
+        depWaitGraphJsTooltipRegister(oHtmlCanvas, oSvgInner);
 
-        // add a click behavior to toggle the visibility of nodes and edges
-        // splitted to prevent having a unused if() for each edge
+        depWaitGraphJsFocusRegister(oHtmlCanvas, oSvgInner);
+    };
+
+
+    //--------------------------------------------------------------------------
+    // register mouse events on specific objects for the focus effect
+    // @param oSvgHtmlCanvas : the SVG canvas html object
+    // @param oSvgCanvasInner : the SVG dagre.graph.inner object
+    function depWaitGraphJsFocusRegister(oSvgHtmlCanvas, oSvgGraphInner) {
+        // ref: https://dagrejs.github.io/project/dagre-d3/latest/demo/hover.html
+
+        // add a focus behavior to toggle the visibility of nodes and edges
+        // => a visible/hide class on all nodes/edges with its rule switched to on or off depending of the state
+        // => a protect class to disable the visibility effect on specific nodes & edges
         self.svgClickVisibilityToggleClass = "toggle-visibility";
         self.svgClickVisibilityProtectClass = "toggle-visible-protect";
         self.svgClickVisibilitySelectClass = "toggle-select";
-        self.svgClickVisibilityCssId = oHtmlCanvas.attr("id")
+        self.svgClickVisibilityCssId = oSvgHtmlCanvas.attr("id");
+        self.svgClickVisibilityCssFullPath = "#" + self.svgClickVisibilityCssId + 
+                                             " ." + self.svgClickVisibilityToggleClass + ":not(." + self.svgClickVisibilityProtectClass + ")";
         self.svgClickVisibilityCss = depWaitGraphJsHelperSvgClickVisibilityCss();
 
         depWaitGraphJsHelperClickNodeFocusClear();
 
-        oSvgInner.selectAll("g.output g.edgePaths .edgePath").each( function() { this.classList.add(self.svgClickVisibilityToggleClass); });
-        oSvgInner.selectAll("g.output g.nodes .node").each( function() { 
-            this.classList.add(self.svgClickVisibilityToggleClass);
-            this.addEventListener("click", depWaitGraphJsClickNode);
+        // to work, the visibility class must be positonned on the same node than the protect class, which is set on the ID
+        // => nodes and edges are the same, but label has their ID set on an additional level
+        oSvgGraphInner.selectAll("g.output g.edgePaths .edgePath" + ", " + 
+                                 "g.output g.edgeLabels .edgeLabel g.label"
+        ).each(
+            function() { this.classList.add(self.svgClickVisibilityToggleClass);
         });
+
+        // register the clic event on nodes
+        oSvgGraphInner.selectAll("g.output g.nodes .node").each( function() { 
+            this.classList.add(self.svgClickVisibilityToggleClass);
+            this.addEventListener("click", depWaitGraphJsFocusNode);
+        });
+    }
+
+
+    // get a handle to the given global css rule - put in a function as used at different location
+    function depWaitGraphJsHelperSvgClickVisibilityCss() {
+        return self.getCSSRule( self.svgClickVisibilityCssFullPath, 
+                    { bRemoteRulesOnly: true }
+                );
     };
 
 
-    function depWaitGraphJsClickNode(oEvt) {
-        // only on a job label-group
+    // dedicated function due to the refresh button
+    function depWaitGraphJsHelperClickNodeFocusClear() {
+        if (self.svgClickVisibilityCss) { self.svgClickVisibilityCss.style.filter = "opacity(1)"; };
+    };
+
+
+    // focus function for nodes on mouse event
+    function depWaitGraphJsFocusNode(oEvt) {
+        // execute only on a label-group element
         if ( oEvt.target.classList.contains("label-group") ) {
+            // TODO : see the key events (boolean) : oEvt.ctrlKey, oEvt.shiftKey, oEvt.altKey
+
             var oEltParent = oEvt.target.closest("g.node");
             if (! oEltParent.classList.contains("job") ) { return; };
-  
+
             var oSvgInner = depWaitGraphDagreGetSvgInner();
 
             var bCurrentNodeIsAlreadySelected = false;
@@ -214,6 +273,7 @@
             
             // in all case, remove the protected class from all related nodes and edges
             oSvgInner.selectAll(
+                "g.output g.edgeLabels ." + self.svgClickVisibilityProtectClass + ", " +
                 "g.output g.edgePaths ." + self.svgClickVisibilityProtectClass + ", " +
                 "g.output g.nodes ." + self.svgClickVisibilityProtectClass
             ).each( function() {
@@ -236,91 +296,188 @@
                     // fun dagre fact : only the base informations are returned, another call is required for the rest of the data (class, text, ...)
                     var oCurrentEdge = depWaitGraphDagreGetEdge({v: oCurrentEdgeInfo.v, w: oCurrentEdgeInfo.w, name: oCurrentEdgeInfo?.name});
 
-                    // the edge name should have been set in the DOM as ID when created, otherwise they are hidden edges
+                    // The edge name should have been set in the DOM as ID when created, otherwise they are hidden edges
+                    // And the edge label reuse the same ID
                     if (!oCurrentEdge?.name) { continue; };
                     // also, oSvgInner is a d3 object : .classed(..., true) <=> .classList.add(...)
-                    oSvgInner.select("g.output g.edgePaths g#" + oCurrentEdge.name)?.classed(self.svgClickVisibilityProtectClass, true);
-                    
+                    oSvgInner.selectAll("g.output g.edgePaths g#" + oCurrentEdge.name + "," +
+                                        "g.output g.edgeLabels g#" + oCurrentEdge.name
+                                        )?.classed(self.svgClickVisibilityProtectClass, true);
+
+
+                    // and get the node at the other side of the edge - account of the possible inverted direction
                     sNodeIdPrefix = "job_";
                     if ( oCurrentEdge["class"].includes("filelink") ) { sNodeIdPrefix = ""; };
-                    
-                    // and get the node at the other side of the edge - account of the possible inverted direction
+
                     var sTargetNodeId = oCurrentEdgeInfo.v;
                     if (sTargetNodeId == sRdJobId) { sTargetNodeId = oCurrentEdgeInfo.w; };
                     oSvgInner.select("g.output g.nodes g#" + sNodeIdPrefix + sTargetNodeId)?.classed(self.svgClickVisibilityProtectClass, true);
                 };
                 
                 // Finally, switch the global style to transparent
-                // When the user alter any css rule, this reference  become invalid and raise a NS_ERROR_NOT_AVAILABLE error
-                if (! self.svgClickVisibilityCss?.style) { self.svgClickVisibilityCss = depWaitGraphJsHelperSvgClickVisibilityCss(); };
-                self.svgClickVisibilityCss.style.filter = "opacity(0.07)";
+                try {
+                    self.svgClickVisibilityCss.style.filter = "opacity(0.07)";
+
+                // When the user alter any css rule, this reference become invalid and raise a NS_ERROR_NOT_AVAILABLE error - try again
+                } catch (e) {
+                    self.svgClickVisibilityCss = depWaitGraphJsHelperSvgClickVisibilityCss();
+                    self.svgClickVisibilityCss.style.filter = "opacity(0.07)";
+                }
             };
         };
     };
-    
 
-    function depWaitGraphJsTooltipShow(oEvt, sType) {
-        var sToolTipText = "";
 
-        var oParentClassList;
-        if (oEvt.target.nodeName == "path") {
-            oParentClassList = oEvt.target.parentElement.classList;
-        } else {
-            oParentClassList = oEvt.parentElement.parentElement.classList;
+    //--------------------------------------------------------------------------
+    // register the mouse events on specific objects for tooltip support
+    // @param oSvgHtmlCanvas : the SVG canvas html object
+    // @param oSvgCanvasInner : the SVG dagre.graph.inner object
+    function depWaitGraphJsTooltipRegister(oSvgHtmlCanvas, oSvgGraphInner) {
+        // ref: https://dagrejs.github.io/project/dagre-d3/latest/demo/hover.html
+        // ref: https://codepen.io/billdwhite/pen/OJLeLR
+
+        self.svgTooltipSvgCanvas = oSvgHtmlCanvas;
+        self.svgTooltipSvgGraphInner = oSvgGraphInner;
+
+        // list of elements to add tooltip on hover
+        var aHtmlSelectors = [ {type: "node", selector: "g.nodes g.label div.label", subElt: "div"},                    // label area for nodes
+                               {type: "link", selector: "g.edgePaths g:not(.schedule-link)", subElt: "path, marker"},   // all edges
+                               {type: "link-label", selector: "g.edgeLabel g.label div.label", subElt: "i"},            // label icons for edgeLabels
+                             ];
+
+        for (oCurrentSelect of aHtmlSelectors) {
+            var oSvgElts = oSvgGraphInner.selectAll(oCurrentSelect.selector);
+            oSvgElts.selectAll(oCurrentSelect.subElt).each( function() {
+                this.setAttribute(self.htmlTagDataType, oCurrentSelect.type);
+                this.addEventListener("mouseover", depWaitGraphJsTooltipShow);
+                this.addEventListener("mouseout", depWaitGraphJsTooltipHide);
+            });
         };
+        depWaitGraphJsTooltipHide();
+    };
 
-        if (sType == "link") {
+    // hide the tooltip area
+    function depWaitGraphJsTooltipHide() {
+        self.htmlCanvasTooltip.style.display = "none";
+    };
+
+
+    // print tooltips in the panel footer
+    function depWaitGraphJsTooltipShow(oEvt) {
+        var oElement = oEvt.target;
+        var sType = "";
+        var sToolTipText = "";
+        var bIsManaged = false;
+
+        // manage <a href> elements
+        if (oElement.nodeName == "A") { oElement = oElement.parentElement; };
+
+        // all elements
+        if (oElement.hasAttribute(self.htmlTagDataType)) { sType = oElement.getAttribute(htmlTagDataType); bIsManaged = true; };
+        if (oElement.hasAttribute(self.htmlTagDataTooltip)) { sToolTipText = oElement.getAttribute(htmlTagDataTooltip); bIsManaged = true; };
+
+        if (!bIsManaged) { return; };
+
+        if (sToolTipText != "") {
+            // default action
+            sToolTipText = sToolTipText.replace(/(.*?): /, '<b>$1:</b> ');
+
+        } else if (sType == "node") {
+            if (oElement.classList.contains("label-group")) {
+                sToolTipText = "Job group : " + oElement.textContent + " &#9479 <em>(Click to use or move the focus mode)</em>";
+            } else if (oElement.classList.contains("label-name")) {
+                sToolTipText = "Job name : " + oElement.textContent + " &#9479 <em>(Click to open the definition)</em>"
+            };
+            sToolTipText = sToolTipText.replace(/(.*?): /, '<b>$1:</b> ');
+
+        } else if (sType == "link" || sType == "link-label") {
+            var oParentClassList;
             // default link tooltip
             var sTooltipIcon = "";
-            var sTooltipType = "";
-            var sTooltipDesc = "";
             var sTooltipDescState = "";
-            var sTooltipDescSuffix = "";
+            sToolTipText = "";
+            var sToolTipTextType = "";
 
-            if ( oParentClassList.contains("reflink") ) {
-                    sTooltipIcon = "far fa-plus-square";
-                    sTooltipType = "(Jobref) Reference";
-                    sTooltipDesc = "execute the related job";
-                    sTooltipDescState = "";
+
+            // extract the html classes of the element
+            if (sType == "link-label") {
+                // retrieve the related link of the label
+                var sLinkId = oEvt.target.parentElement.parentElement.parentElement.parentElement.id;
+                // svgCanvas is a jquery object
+                oElement = self.svgTooltipSvgCanvas.find("g.edgePaths g#" + sLinkId)[0];
+                oParentClassList = oElement.classList;
+
+            } else if (oElement.nodeName == "path") {
+                oParentClassList = oElement.parentElement.classList;
 
             } else {
-                sTooltipIcon = "far fa-arrow-alt-circle-right";
-                sTooltipDesc = "wait until";
-                sTooltipDescState = "completion";
+                oParentClassList = oEvt.parentElement.parentElement.classList;
+            };
+
+
+            // main link types
+            if ( oParentClassList.contains("reflink") ) {
+                sTooltipIcon = "reflink " + self.aLinkIcons["reflink"];
+                sToolTipText = '<i class="' + sTooltipIcon + '"></i><b>(Jobref)</b> Reference : inline execution of the related job';
+
+            } else if ( oParentClassList.contains("statelink") ) {
+                sTooltipDescState = "success";
+                if (oParentClassList.contains("link-error")) { sTooltipDescState = "error"; };
+                sTooltipIcon = "statelink " + self.aLinkIcons["statelink"];
+                sToolTipText = '<i class="' + sTooltipIcon + '"></i><b>(State)</b> Job state conditional : Assert that another job is in ' + sTooltipDescState;
+
+            } else if ( oParentClassList.contains("joblink") || oParentClassList.contains("filelink") ) {
+                sTooltipIcon = "link-success";
+                sToolTipTextType = "Job"; 
+
+                if ( oParentClassList.contains("filelink") ) { sToolTipTextType = "File"; sTooltipIcon = "filelink"; };
+                sTooltipIcon += " " + self.aLinkIcons["link-success"];
+
+                if ( oParentClassList.contains("link-error") ) { sTooltipIcon = "link-error " + self.aLinkIcons["link-error"]; };
 
                 if ( oParentClassList.contains("link-soft") ) {
-                    sTooltipType = "Soft link";
-                    sTooltipDescSuffix = " only if the execution is already present";
+                    if (oParentClassList.contains("link-error")) { sTooltipDescState = "for error "; };
+                    sToolTipText += ' <i class="' + sTooltipIcon + '"></i><b>(Dependencies) ' + sToolTipTextType + ' soft link :</b> wait ' + sTooltipDescState + 'only if the execution is present';
+
                 } else {
-                    sTooltipType = "Link";
+                    sTooltipDescState = "until completion";
+                    if (oParentClassList.contains("link-error")) { sTooltipDescState = "until error"; };
+                    sToolTipText += ' <i class="' + sTooltipIcon + '"></i><b>(Dependencies) ' + sToolTipTextType + ' link :</b> wait ' + sTooltipDescState;
                 };
 
                 if ( oParentClassList.contains("link-force") ) {
-                    sTooltipIcon = "fas fa-angle-double-right";
-                    sTooltipType = "Forced " + sTooltipType.toLowerCase();
-                    sTooltipDescSuffix += " or force the execution on timeout";
+                    sTooltipIcon = "link-force " + self.aLinkIcons["link-force"];
+                    sToolTipText += ' <i class="' + sTooltipIcon + '"></i>Forced : launch forced on timeout';
                 };
 
-                if (oParentClassList.contains("link-error")) { sTooltipDescState = "error"; };
-
-                sTooltipType = "(Dependencies) " + sTooltipType;
+                if ( oParentClassList.contains("link-wait") ) {
+                    sTooltipIcon = "link-wait " + self.aLinkIcons["link-wait"];
+                    sToolTipText += ' <i class="' + sTooltipIcon + '"></i>Max wait : timeout duration modified';
+                };
             };
 
-            if (oParentClassList.contains("link-errorhandler")) {
-                sTooltipType += " with errorhandler";
-                sTooltipDescSuffix += " when the parent step is in error";
+            // additional states on links
+            if ( oParentClassList.contains("link-errorhandler") ) {
+                sTooltipIcon = "link-handler " + self.aLinkIcons["link-errorhandler"];
+                sToolTipText += ' <i class="' + sTooltipIcon + '"></i>Errorhandler : when the parent step is in error';
             };
 
-            sToolTipText = '<i class="' + sTooltipIcon + '"></i>' + sTooltipType + ' :  ' + sTooltipDesc + " " + sTooltipDescState + sTooltipDescSuffix;
+            if ( oParentClassList.contains("link-halt") ) {
+                var sFinalText = "Halt : if succeded, halt the current job as success"
+                sTooltipIcon = "link-halt " + self.aLinkIcons["link-halt"];
+                sToolTipText += ' <i class="' + sTooltipIcon + '"></i>';
+
+                if ( oParentClassList.contains("link-fail") ) {
+                    sTooltipIcon = "link-halt " + self.aLinkIcons["link-fail"];
+                    sToolTipText += ' <i class="' + sTooltipIcon + '"></i>';
+                    var sFinalText = "Halt & fail : if succeded, halt the current job as failed"
+                };
+                sToolTipText += sFinalText;
+            };
         };
 
         self.htmlCanvasTooltip.innerHTML = sToolTipText;
         self.htmlCanvasTooltip.style.display = "unset";
-    };
-
-
-    function depWaitGraphJsTooltipHide() {
-        self.htmlCanvasTooltip.style.display = "none";
     };
 
 
@@ -422,9 +579,6 @@
 
         // create a cluster for the job's group
         depWaitGraphSetClusterGroupAndClusterScheduled(sJobId, aJobDef.group, aJobDef.schedule.hour, aJobDef.schedule.minute);
-        
-        // keep track of the number of links on the job
-        
     };
 
 
@@ -452,8 +606,8 @@
         
         var oLabelHtml = depWaitGraphJobLabelHtml(oCustomJob, {nMarkerWarning: nMarkerWarning});
         oLabelHtml.nodeClass += " node-jobref";
-        oLabelHtml.label = '<div class="label-marker marker-jobref pull-absolute-top-center" title="Job launched by another job">' + 
-                                '<i class="glyphicon glyphicon-book"></i>JobRef</div>' + 
+        oLabelHtml.label = '<div class="label-marker marker-jobref pull-absolute-top-center" ' + self.htmlTagDataTooltip + '="Jobref : Job launched by another job">' +
+                                '<i class="' + self.aLinkIcons["reflink"] + '"></i>JobRef</div>' +
                             '<div class="node-label-overlay overlay-jobref"></div>' +
                             oLabelHtml.label;
 
@@ -495,44 +649,62 @@
 // #############################################################################
 
     // hard edge for a job
-    function depWaitGraphSetEdgeHard(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce, bStatus) {
-        depWaitGraphSetEdgeJob(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce, bStatus, "link-hard");
+    function depWaitGraphSetEdgeHard(oEdgeDef) {
+        depWaitGraphSetEdgeJob(oEdgeDef, "link-hard");
     };
 
     // soft edge for a job
-    function depWaitGraphSetEdgeSoft(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce, bStatus) {
-        depWaitGraphSetEdgeJob(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce, bStatus, "link-soft");
+    function depWaitGraphSetEdgeSoft(oEdgeDef) {
+        depWaitGraphSetEdgeJob(oEdgeDef, "link-soft");
     };
 
     // basic edge for a job
-    function depWaitGraphSetEdgeBasic(sJobIdSrc, sJobIdDest, sEdgeName, bStatus) {
-        depWaitGraphSetEdgeJob(sJobIdSrc, sJobIdDest, sEdgeName, false, bStatus, "link-normal");
+    function depWaitGraphSetEdgeBasic(oEdgeDef) {
+        depWaitGraphSetEdgeJob(oEdgeDef, "link-normal");
     };
 
     // common edge function for a job
-    function depWaitGraphSetEdgeJob(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce, bStatus, sClass, sArrowhead = "normal") {
-        sClass = "joblink " + sClass + (bExecForce ? " link-force" : "") + (bStatus ? " link-success" : " link-error");
-        if (bExecForce) { sArrowhead = "vee"; };
-        depWaitGraphDagreSetEdge( sJobIdSrc, sJobIdDest, {sName: sEdgeName, sClass: sClass.trim(), sArrowhead: sArrowhead });
+    function depWaitGraphSetEdgeJob(oEdgeDef, sClass) {
+        var sArrowhead = "normal";
+        if (oEdgeDef.bForce) { sArrowhead = "vee"; };
+        var oLabelClass = depWaitGraphEdgeClassLabelHtml(oEdgeDef, "joblink " + sClass);
+        var sLabel = oLabelClass["htmlLabel"];
+        var sClass = oLabelClass["htmlClass"];
+
+        depWaitGraphDagreSetEdge(oEdgeDef.sTargetId, oEdgeDef.sSourceId, {sName: oEdgeDef.sEdgeId, sClass: sClass.trim(), sArrowhead: sArrowhead, sLabel: sLabel });
     };
 
 
     // edge for a jobref
-    function depWaitGraphSetEdgeJobRef(sJobIdSrc, sJobIdDest, sEdgeName, bStatus = true, bIsErrorHandler = false) {
-        var sClass =  "reflink" + 
-            (bStatus ? " link-success" : " link-error") +
-            (bIsErrorHandler ? " link-errorhandler" : "");
+    function depWaitGraphSetEdgeJobRef(oEdgeDef) {
         var sArrowhead = "undirected";
-        depWaitGraphDagreSetEdge( sJobIdSrc, sJobIdDest, {sName: sEdgeName, sClass: sClass.trim(), sArrowhead: sArrowhead });
+        var oLabelClass = depWaitGraphEdgeClassLabelHtml(oEdgeDef, "reflink");
+        var sLabel = oLabelClass["htmlLabel"];
+        var sClass = oLabelClass["htmlClass"];
+
+        depWaitGraphDagreSetEdge(oEdgeDef.sTargetId, oEdgeDef.sSourceId, {sName: oEdgeDef.sEdgeId, sClass: sClass.trim(), sArrowhead: sArrowhead, sLabel: sLabel });
     };
 
 
-    // edge for a file
-    function depWaitGraphSetEdgeFile(sJobIdSrc, sJobIdDest, sEdgeName, bExecForce) {
-        var sClass =  "filelink" + (bExecForce ? " link-force" : "");
+    // edge for a jobref
+    function depWaitGraphSetEdgeJobState(oEdgeDef) {
         var sArrowhead = "normal";
-        if (bExecForce) { sArrowhead = "vee"; };
-        depWaitGraphDagreSetEdge( sJobIdSrc, sJobIdDest, {sName: sEdgeName, sClass: sClass.trim(), sArrowhead: sArrowhead });
+        var oLabelClass = depWaitGraphEdgeClassLabelHtml(oEdgeDef, "statelink");
+        var sLabel = oLabelClass["htmlLabel"];
+        var sClass = oLabelClass["htmlClass"];
+
+        depWaitGraphDagreSetEdge(oEdgeDef.sTargetId, oEdgeDef.sSourceId, {sName: oEdgeDef.sEdgeId, sClass: sClass.trim(), sArrowhead: sArrowhead, sLabel: sLabel });
+    };
+
+    // edge for a file
+    function depWaitGraphSetEdgeFile(oEdgeDef) {
+        var sArrowhead = "normal";
+        if (oEdgeDef.bForce) { sArrowhead = "vee"; };
+        var oLabelClass = depWaitGraphEdgeClassLabelHtml(oEdgeDef, "filelink");
+        var sLabel = oLabelClass["htmlLabel"];
+        var sClass = oLabelClass["htmlClass"];
+
+        depWaitGraphDagreSetEdge(oEdgeDef.sTargetId, oEdgeDef.sSourceId, {sName: oEdgeDef.sEdgeId, sClass: sClass.trim(), sArrowhead: sArrowhead, sLabel: sLabel });
     };
 
 
@@ -560,36 +732,36 @@
 
                 case self.aWarningType.question:
                     sIcon = "fas fa-question-circle";
-                    sTooltip = "Job definition is unknown in the current project";
+                    sTooltip = "Warning : Job definition is unknown in the current project";
                     break;
                     
                 case self.aWarningType.exclamation:
                     sIcon = "fas fa-exclamation-circle";
-                    sTooltip = "Houston we've got a problem !";
+                    sTooltip = "Critical : Houston we've got a problem !";
                     break;
                     
                 default:
                     // nothing
                     break;
             };
-            sLabelMarkers += '<div class="label-marker-warning pull-absolute-top-left" title="' + sTooltip + '"><i class="' + sIcon + '"></i></div>';
+            sLabelMarkers += '<div class="label-marker-warning pull-absolute-top-left" ' + self.htmlTagDataTooltip + '="' + sTooltip + '"><i class="' + sIcon + '"></i></div>';
         };
 
         if (aJobDef.hasOwnProperty("enabled") && !aJobDef.enabled) {
             sClass += " node-disabled";
-            sLabelMarkers += '<div class="label-marker-warning marker-disabled pull-absolute-top-left" title="Job execution is disabled">' + 
-                                '<i class="fas fa-power-off"></i></div>' + 
+            sLabelMarkers += '<div class="label-marker-warning marker-disabled pull-absolute-top-left" ' + self.htmlTagDataTooltip + '="Job state : execution is disabled">' +
+                                '<i class="fas fa-power-off"></i></div>' +
                             '<div class="node-label-overlay overlay-disabled"></div>';
         };
 
         if (aJobDef.hasOwnProperty("custom_slot")) {
-            sLabelMarkers += '<div class="label-marker marker-slot pull-absolute-top-right" title="Slot restrictions on ' + aJobDef.custom_slot.length + ' step(s)">' +  
-                aJobDef.custom_slot.join("+") + 
+            sLabelMarkers += '<div class="label-marker marker-slot pull-absolute-top-right" ' + self.htmlTagDataTooltip + '="(Dependencies) Slots : restriction on ' + aJobDef.custom_slot.length + ' step(s)">' +
+                aJobDef.custom_slot.join("+") +
                 '</div>';
         };
 
         if (aJobDef.hasOwnProperty("custom_notification")) {
-            sLabelMarkers += '<div class="label-marker marker-notification pull-absolute-bottom-left" title="Notifications : ' + aJobDef.custom_notification.fullNotification +'">' + 
+            sLabelMarkers += '<div class="label-marker marker-notification pull-absolute-bottom-left" ' + self.htmlTagDataTooltip +'="Notifications : ' + aJobDef.custom_notification.fullNotification +'">' +
                 '<i class="far fa-bell"></i>' +
                 aJobDef.custom_notification.simpleNotification +
                 '</div>';
@@ -606,19 +778,19 @@
             sScheduleTooltip = aJobDef.schedule.fullLabel;
 
             if (!aJobDef.scheduleEnabled) {
-                sScheduleTooltip = "(disabled) "+ sScheduleTooltip;
+                sScheduleTooltip = sScheduleTooltip.replace(/(.*?): /, '$1 (Disabled) : ');
                 sScheduleClass = "text-warning";    // rd class
                 sScheduleIcon = "far fa-pause-circle"
             };
 
         } else if (aJobDef.hasOwnProperty("custom_project_is_current") && !aJobDef.custom_project_is_current) {
             sSchedule = "external";
-            sScheduleTooltip = "Definition not accessible";
+            sScheduleTooltip = "Schedule : definition is not accessible";
             sScheduleIcon = "far fa-clock";
 
         } else {
             sSchedule = "manual";
-            sScheduleTooltip = "No schedule defined";
+            sScheduleTooltip = "Manual launch : no schedule defined";
             sScheduleIcon = "far fa-play-circle";
         };
         
@@ -626,7 +798,7 @@
         if ( aJobDef.hasOwnProperty("custom_project_is_current") )  {
             if (aJobDef.custom_project_is_current && nMarkerWarning == 0 ) {
                 if (self.htmlJobLabelShowHrefLink) {
-                    aJobDef.name = '<a href="' + self.rdUrlScheduledExecutionShow + "/" + aJobDef.id + '" target="_blank" title="Open the job definition">' +
+                    aJobDef.name = '<a href="' + self.rdUrlScheduledExecutionShow + "/" + aJobDef.id + '" target="_blank">' +
                                   aJobDef.name +
                                   '</a>';
                 };
@@ -638,7 +810,7 @@
         var sLabelName = '<div class="label-name">' + aJobDef.name + '</div>';            
 
         sLabel += sLabelGroup + sLabelName + sLabelProject;
-        sLabel += '<div class="label-marker marker-schedule pull-absolute-bottom-right ' + sScheduleClass + '" title="' + sScheduleTooltip + '"><i class="' + sScheduleIcon + '"></i>' + sSchedule + '</div>';
+        sLabel += '<div class="label-marker marker-schedule pull-absolute-bottom-right ' + sScheduleClass + '" ' + self.htmlTagDataTooltip + '="' + sScheduleTooltip + '"><i class="' + sScheduleIcon + '"></i>' + sSchedule + '</div>';
 
         return { label: sLabelMarkers + sLabel, nodeClass: sClass.trim()};
     };
@@ -651,20 +823,137 @@
 
         if (aFileDef.flag_verify_hash) {
             // also : "far fa-check-circle"
-            sLabelMarkers += '<div class="label-marker marker-hash pull-relative-right" title="File hash is verified"><i class="fas fa-hashtag"></i></div>';
+            sLabelMarkers += '<div class="label-marker marker-hash pull-relative-right" ' + self.htmlTagDataTooltip + '="(Dependencies) Files : The file hash is verified"><i class="fas fa-hashtag"></i></div>';
         };
 
         if (aFileDef.flag_type) {
-            sLabelMarkers += '<div class="label-marker marker-flag pull-relative-right" title="A flag file is expected when the transfer is complete"><i class="fas fa-flag"></i></div>';
+            sLabelMarkers += '<div class="label-marker marker-flag pull-relative-right" ' + self.htmlTagDataTooltip + '="(Dependencies) Files : A flag file is expected when the transfer is complete"><i class="fas fa-flag"></i></div>';
         };
         
         sLabel = '' + 
             '<div class="label-empty"></div>' +
-            '<div class="label-file-host">Host: ' + aFileDef.target_host + '</div>' +
-            '<div class="label-file-name" title="' + aFileDef.target_file +'"><i class="far fa-file-alt"></i>' + aFileDef.target_file + '</div>' +
-            '<div class="label-file-dir" title="' + aFileDef.target_directory +'"><i class="far fa-folder-open"></i>' + aFileDef.target_directory + '</div>';
+            '<div class="label-file-host" ' + self.htmlTagDataTooltip + '="File host : ' + aFileDef.target_host +'">Host: ' + aFileDef.target_host + '</div>' +
+            '<div class="label-file-name" ' + self.htmlTagDataTooltip + '="File name : ' + aFileDef.target_file +'"><i class="far fa-file-alt"></i>' + aFileDef.target_file + '</div>' +
+            '<div class="label-file-dir" ' + self.htmlTagDataTooltip + '="File directory : ' + aFileDef.target_directory +'"><i class="far fa-folder-open"></i>' + aFileDef.target_directory + '</div>';
 
         return { label: sLabelMarkers + sLabel, nodeClass: sClass.trim()};
+    };
+
+
+    function depWaitGraphEdgeClassLabelHtml(oEdgeDef, sClassName, {sLabelOverride = ""} = {}) {
+        if (!self.htmlEdgeLabelShow) { return false; };
+
+        var sLabel = "";
+        var sLabelMarkers = "";
+        var sClass = sClassName;
+
+
+        if (oEdgeDef?.nEntityType == depWaitHelperJobGetDependencyType().ref) {
+            sLabelMarkers += '<div class="reflink"><i class="' + self.aLinkIcons["reflink"] + '"></i></div>';
+            // no class here
+        };
+
+        if (oEdgeDef?.nEntityType == depWaitHelperJobGetDependencyType().stateCond) {
+            sLabelMarkers += '<div class="statelink"><i class="' + self.aLinkIcons["statelink"] + '"></i></div>';
+            // no class here
+        };
+
+        // job type must always has the status class
+        if (oEdgeDef.hasOwnProperty("bLinkStatus") || oEdgeDef?.nEntityType == depWaitHelperJobGetDependencyType().job) {
+            // no label here
+            sClass += ((oEdgeDef.bLinkStatus ?? true) ? " link-success" : " link-error");
+        };
+
+
+        if (oEdgeDef?.bForce) {
+            sLabelMarkers += '<div class="joblink link-force"><i class="' + self.aLinkIcons["link-force"] + '"></i></div>';
+            sClass += " link-force";
+        };
+
+        if (oEdgeDef?.bMaxWait) {
+            sLabelMarkers += '<div class="joblink link-wait"><i class="' + self.aLinkIcons["link-wait"] + '"></i></div>';
+            sClass += " link-wait";
+        };
+
+        if (oEdgeDef?.bHalt) {
+            sLabelMarkers += '<div class="joblink link-halt"><i class="' + self.aLinkIcons["link-halt"] + '"></i></div>';
+            sClass += " link-halt";
+        };
+
+        if (oEdgeDef?.bFail) {
+            sLabelMarkers += '<div class="joblink link-fail"><i class="' + self.aLinkIcons["link-fail"] + '"></i></div>';
+            sClass += " link-fail";
+        };
+
+        // handler is generic - must be last
+        if (oEdgeDef?.bIsErrorHandler) {
+            sLabelMarkers += '<div class="joblink link-handler"><i class="' + self.aLinkIcons["link-errorhandler"] + '"></i></div>';
+            sClass += " link-errorhandler";
+        }
+
+        return {htmlClass: sClass, htmlLabel: sLabelMarkers}
+    };
+
+
+// Session cookies #############################################################
+
+    function depWaitGraphSessionJarSave(sRdProject) {
+        return;
+
+        /* TODO
+        checkJarCookieStorageQuota();
+
+        // for limiting a cookie to the session, leave "expires" and "max-age" absent
+        // format : "cookiename=value; path=/"
+        sessionStorage.setItem(self.cookieName.project, sRdProject);
+
+        sessionStorage.setItem(self.cookieName.graph, JSON.stringify( depWaitGraphDagreBackupSave() ) );
+        */
+    };
+
+
+    function depWaitGraphSessionJarGetProject() {
+        var sRet = "";
+        if (self.cookieName && self.cookieName.project) {
+            var sData = sessionStorage.getItem(self.cookieName.project);
+            if (sData) { sRet = sData; };
+        };
+        return sRet;
+    };
+
+
+    function depWaitGraphSessionJarGetGraphData() {
+        var bLoaded = false;
+        if (self.cookieName && self.cookieName.graph) {
+            var sData = sessionStorage.getItem(self.cookieName.graph);
+            if (sData) {
+                try {
+                    depWaitGraphDagreBackupLoad( JSON.parse(sData) );
+                    bLoaded = true;
+                } catch (error) {
+                    depWaitLog("Warning: invalid graph data from the cookie - full reload of the project data");
+                };
+            };
+        };
+        return bLoaded;
+    };
+
+
+    // ref: https://www.slingacademy.com/article/manage-data-limits-and-quotas-in-javascript-storage/
+    function checkJarCookieStorageQuota() {
+      let usedBytes = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        let key = localStorage.key(i);
+        usedBytes += localStorage.getItem(key).length;
+      }
+      depWaitLog(`Maximum storage: ${usedBytes} bytes`);
+      return usedBytes;
+    }
+
+
+    function getJarCookie(sName) {
+        var oMatch = document.cookie.match(new RegExp('(^| )' + sName + '=([^;]+)'));
+        if (oMatch) return oMatch[2];
     };
 
 
@@ -679,16 +968,10 @@
         var nWorkflowEndHour = nWorkflowStartHour - 1 
         
         for ( let i of Array.prototype.concat.apply([], [self.intSequence(nWorkflowStartHour, 23, 1), self.intSequence(0, nWorkflowEndHour, 1)]) ) { 
-            if (!self.clusterTimePrecisionMinute) {
-                if (clusterTimeCreateAll) { depWaitGraphSetClusterForSchedule(i); };
-                aScheduleOrder.push( depWaitGraphHelperGroupTimeFormat(i) );
-
-            // add the quarter minutes to each hour - from 0 to 45, 15 mins increments
-            } else {
-                for (let m of self.intSequence(0, 45, 15) ) {
-                    if (clusterTimeCreateAll) { depWaitGraphSetClusterForSchedule(i, m); };
-                    aScheduleOrder.push( depWaitGraphHelperGroupTimeFormat(i, m) );
-                };
+            // add the minute precision to each hour
+            for (let m of self.intSequence(0, 59, self.clusterTimePrecisionMinute) ) {
+                if (clusterTimeCreateAll) { depWaitGraphSetClusterForSchedule(i, m); };
+                aScheduleOrder.push( depWaitGraphHelperGroupTimeFormat(i, m) );
             };
         };
         return aScheduleOrder;
@@ -698,9 +981,10 @@
     // create an array [start ... end ] filled with a sequence of numbers increased by the step
     // @param nStart : [start ...]
     // @param nEnd : [...end]
-    // @param nStep : increase value
+    // @param nStep : increase value. If nStep < 1 the result will be : [start]
     self.intSequence = (nStart, nEnd, nStep = 1) => {
         var oRet = [];
+        if (nStep < 1) { nStep = nEnd + 1; };
         for (var i = nStart; i <= nEnd; i += nStep) { oRet.push(i); };
         return oRet;
     };

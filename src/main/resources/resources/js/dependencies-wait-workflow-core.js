@@ -21,7 +21,6 @@ jQuery(function () {
     self.htmlCanvas = $("svg#" + self.rdplugin.canvas);
     self.htmlCanvasHolder = $("#" + self.rdplugin.canvas_holder);
 
-
     if (self.rdplugin.initialized_graph) { return; };
 
     depWaitLog("graph: installed");
@@ -32,6 +31,8 @@ jQuery(function () {
         depWaitHtmlRefreshClick();
         self.htmlButtonRefresh.prop("disabled", false);
     });
+
+    self.dataSession = {"project": "depWaitProjectName", "graph": "depWaitGraphData"};
 
     window.RDPLUGIN[self.pluginName].initialized_graph = true;
 
@@ -53,36 +54,45 @@ jQuery(function () {
         // using forEach() will not work correctly with promises as it is optimized to works concurrently
 
         try {
-            depWaitGraphCanvasInit(self.htmlCanvas);
+            if (depWaitGraphCanvasInit(self.htmlCanvas)) {
             
-            var oPromiseJobList = depWaitAjaxGetJobsFromProject(self.project);
-            // no ; here
-            Promise.any([oPromiseJobList])
-                .then( (oPromiseData) => { 
-                    if (!depWaitDataParseProject(oPromiseData)) { throw new Error ("Aborting => no jobs"); };
-                    return depWaitDataLoopJobs();
-                }).then( (oPromiseJobsData) => {
-                    // TODO: the html rendering update visually only after the loop is ended
-                    // self.htmlProgressBar.show();
+                var oPromiseJobList = depWaitAjaxGetJobsFromProject(self.project);
+                // no ; here
+                Promise.any([oPromiseJobList])
+                    .then( (oPromiseData) => { 
+                        if (!depWaitDataParseProject(oPromiseData)) { throw new Error ("Aborting => no jobs"); };
+                        return depWaitDataLoopJobs();
+                    }).then( (oPromiseJobsData) => {
+                        // TODO: the html rendering update visually only after the loop is ended
+                        // self.htmlProgressBar.show();
 
-                    var i = 0; var nSize = oPromiseJobsData.length;
-                    for (var item of oPromiseJobsData) {
-                        depWaitDataParseDef(item);
-                        depWaitHtmlModalProgressBar(i + 1, nSize);
-                        i++
-                    };
-                    depWaitLog("Jobs parsing is complete");
+                        var i = 0; var nSize = oPromiseJobsData.length;
+                        for (var item of oPromiseJobsData) {
+                            depWaitDataParseDef(item);
+                            depWaitHtmlModalProgressBar(i + 1, nSize);
+                            i++
+                        };
+                        depWaitLog("Jobs parsing is complete");
 
-                    // self.htmlProgressBar.hide();
-                    
-                    depWaitGraphLastElements()
-                    depWaitGraphLayout();
+                        // self.htmlProgressBar.hide();
+                        
+                        depWaitGraphLastElements()
+                        depWaitGraphLayout();
 
-                    self.htmlSpinner.fadeOut(1000, () => {
-                        depWaitHtmlModalToggleCanvas();
-                        depWaitGraphRender(self.htmlCanvas, self.htmlCanvasHolder);
+                        self.htmlSpinner.fadeOut(1000, () => {
+                            depWaitHtmlModalToggleCanvas();
+                            depWaitGraphRender(self.htmlCanvas, self.htmlCanvasHolder);
+                            depWaitGraphSessionJarSave(self.project)        // save the graph as a cookie
+                        });
+
                     });
+
+            } else {
+                self.htmlSpinner.fadeOut(1000, () => {
+                    depWaitHtmlModalToggleCanvas();
+                    depWaitGraphRender(self.htmlCanvas, self.htmlCanvasHolder);
                 });
+            };
 
         } catch (e) {
             self.htmlSpinnerHide();
@@ -93,12 +103,12 @@ jQuery(function () {
 
 
     self.htmlSpinnerShow = () => {
-        self.htmlSpinner.find(".fa-spinner").addClass("fa-spin");
+        self.htmlSpinner.find(".fa-spinner")[0].classList.add("fa-spin", "fa-5x");
         self.htmlSpinner.show();
     };
 
     self.htmlSpinnerHide = () => {
-        self.htmlSpinner.find("i.fa-spinner").removeClass("fa-spin");
+        self.htmlSpinner.find(".fa-spinner")[0].classList.remove("fa-spin", "fa-5x");
         self.htmlSpinner.hide();
     };
 
@@ -188,7 +198,6 @@ jQuery(function () {
 
         // cannot do any compute in a "foreach => async", must use an array of promise results, then compute
         // also, .map(function) is applicable to an array, not a Map object
-
         var oPromiseJobDefs = Array.from( depWaitHelperJobKeysJobDataFromId() ).map( (sJobUid) => { 
             return depWaitAjaxGetJobDef(sJobUid);
         });
@@ -225,13 +234,14 @@ jQuery(function () {
             oMinimalJobDef.custom_notification = depWaitHelperJobDefNotification(oFullJobDef);
         };
 
-        var aCmdItemConf; var aCurrentStep; var sCmdItemType; var aInterItem = new Map(); var sErrHandlerKeyName;
+        var aCmdItemConf; var sCmdItemType; var aInterItem = new Map(); var sErrHandlerKeyName;
         
         // extract all the job's steps under "commands"
         if (oFullJobDef?.sequence?.commands) {
             oFullJobDef.sequence.commands.forEach((cmdItemInter, cmdIdxInter) => {
 
-                // each step can have an error handler, which can be any valid action => add it as an extra step
+                // each step can have an error handler, which can be any valid action
+                // as there is only one more level, create an intermediary item and add the error handler as an extra step
                 aInterItem.clear();
                 aInterItem.set(cmdIdxInter, cmdItemInter);
 
@@ -245,14 +255,13 @@ jQuery(function () {
                 // good to parse the step definition
                 aInterItem.forEach( (cmdItem, cmdIdx, oIgnore) => {
                     sCmdItemType = "";
-                    // each plugin has its own configuration located under different names
-
-                    // the deps-wait plugins are workflow steps
-                    if (cmdItem.hasOwnProperty("nodeStep") && cmdItem.nodeStep == false) { 
+                    // some items has their own configuration located under different names
+                    // config : general case
+                    if (cmdItem.hasOwnProperty("type")) {
+                        sCmdItemType = cmdItem.type;
                         aCmdItemConf = cmdItem?.configuration ?? {};
-                        sCmdItemType = cmdItem?.type ?? "";
 
-                    // jobref
+                    // config : jobref
                     } else if (cmdItem.hasOwnProperty("jobref")) {
                         aCmdItemConf = cmdItem.jobref;
                         sCmdItemType = "jobref";
@@ -265,26 +274,27 @@ jQuery(function () {
                     // the functions dedicated for each modules must also cover the creation of any secondary node and link when required
                     switch(sCmdItemType) {
                         case "dependencies-wait_job":
-                            aCurrentStep = depWaitHelperJobDefStepCommand_DependencyWaitJob(oMinimalJobDef, oFullJobDef, aCmdItemConf);
+                            depWaitHelperJobDefStepCommand_DependencyWaitJob(oMinimalJobDef, oFullJobDef, aCmdItemConf);
                             break;
-
 
                         case "dependencies-wait_file":
-                            aCurrentStep = depWaitHelperJobDefStepCommand_DependencyWaitFile(oMinimalJobDef, oFullJobDef, aCmdItemConf);
+                            depWaitHelperJobDefStepCommand_DependencyWaitFile(oMinimalJobDef, oFullJobDef, aCmdItemConf);
                             break;
-
 
                         case "dependencies-wait_slot":
-                            aCurrentStep = depWaitHelperJobDefStepCommand_DependencyWaitSlot(oMinimalJobDef, oFullJobDef, aCmdItemConf);
+                            depWaitHelperJobDefStepCommand_DependencyWaitSlot(oMinimalJobDef, oFullJobDef, aCmdItemConf);
+                            break;
+
+                        case "job-state-conditional":
+                            depWaitHelperJobDefStepCommand_jobStateConditional(oMinimalJobDef, oFullJobDef, aCmdItemConf);
                             break;
                         
-                        
                         case "jobref":
-                            aCurrentStep = depWaitHelperJobDefStepCommand_jobref(oMinimalJobDef, oFullJobDef, aCmdItemConf);
+                            depWaitHelperJobDefStepCommand_jobref(oMinimalJobDef, oFullJobDef, aCmdItemConf);
                             break;
 
                         default:
-                            // plugin not supported - do nothing
+                            // plugin not supported - no message
                     };
                 });
             });

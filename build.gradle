@@ -27,7 +27,6 @@ ext {
     // rootProject.name <= must be set in settings.gradle
     pluginPackageName = "com.hal.rundeck.plugin.dependenciesplugin"
 
-
     rundeckPluginEngineVersion = '2.0'
     rundeckVersionMajor = project['rundeckVersion'].split('\\.')[0]    // split works with regexes
 

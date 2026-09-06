@@ -106,10 +106,10 @@ class DependenciesSlotsWorkflowPlugin extends DependenciesWorkflowTemplate {
     )
     @RenderingOptions([ @RenderingOption(key = GROUP_NAME, value = "Slot definition") ])
     /**
-    * There is no real limit to the amount of slots, only this list set the maximum
+    * There is no real limit to the amount of slots, only this list sets the maximum
     * For an absurd reason Groovy casts the <String>array[ "1", "2", ... "5"] content as java.lang.object => use directly static values
     */
-    @SelectValues(freeSelect = false, values = [ "1", "2", "3", "4", "5" ] )
+    @SelectValues(freeSelect = false, values = [ "1", "2", "3", "4", "5", "6", "7" ] )
     String sPropTargetSlot;
 
 

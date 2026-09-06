@@ -3,26 +3,36 @@
 #dependencies-wait-ui {
     --link-generic-normal-stroke-width: 4px;
     --link-generic-force-stroke-width: 6px;
-    --color-node-default-fill: white;           /* used by job, file, jobref nodes */
+    --color-cluster-group-default-fill: var(--colors-gray-200);
+    --color-node-default-fill: white;                               /* used by job, file, jobref nodes */
     --color-node-default-stroke: black;
     --color-node-select-stroke: var(--color-label-job-header-bg);   /* var(--primary-states-color); */
     --color-node-select-fill: ivory;
     --color-node-muted-text: var(--text-muted-color);               /* RD theme */
     --color-label-default-fill: var(--color-node-default-fill);
+    --color-label-default-text: black;
     --color-label-job-header-text: white;
     --color-label-job-header-bg: var(--info-states-color);
     --color-label-file-header-bg: var(--primary-states-color);
     --color-label-marker-bg: whitesmoke;
     --color-label-marker-warning: orangered;
+    --color-linklabel-bg: var(--color-label-marker-bg);
     --color-link-generic: black;
     --color-link-success-normal: var(--colors-green-600);
     --color-link-success-force: orange;
     --color-link-error-normal: #ff5a6a;
     --color-link-error-force: var(--colors-red-600);
+    --color-link-errorhandler-normal: var(--primary-states-color);
+    --color-link-halt-normal: var(--color-link-error-normal);
     --color-link-file-normal: var(--colors-messenger-200);
     --color-link-file-force: var(--colors-messenger-600);
     --color-link-jobref-normal: var(--purple-600);
     --color-link-jobref-error: var(--colors-red-600);
+    --color-link-statecond-normal: var(--default-states-color);
+    --color-link-statecond-error: var(--color-link-error-force);
+    --color-minimap-border: var(--card-default-border-color);
+    --color-minimap-shadow: var(--card-default-box-shadow);
+    --color-minimap-zoom-area-stroke: var(--color-node-select-stroke);
     --zindex-label-marker-generic: 2;
     --zindex-label-overlay: 4;
     --zindex-label-overlay-top: 5;
@@ -33,6 +43,11 @@
 #dependencies-wait-ui .modal-dialog {
     padding-top: 0;
 }
+
+#dependencies-wait-ui .modal-body {
+    padding-right: 0;   /* override the RD padding */
+}
+
 
 #dependencies-wait-ui #dependencies-wait-ui-title {
     display: flex;
@@ -125,6 +140,25 @@ svg#dependencies-wait-ui-canvas {
     width:  100%;
 }
 
+svg#dependencies-wait-ui-canvas-minimap {
+    position: absolute;
+    right: 1.5%;
+    bottom: 3%;
+    background: white;
+    z-index: 99;
+
+    border: var(--color-minimap-border);
+    border-style: solid;
+    border-width: 1px;
+    box-shadow: var(--color-minimap-shadow);
+}
+
+#dependencies-wait-ui-canvas-minimap .zoom-area rect {
+    fill: none;
+    stroke: var(--color-minimap-zoom-area-stroke);
+}
+
+
 #dependencies-wait-ui .svg-tooltip-info {
     display: unset;
     float: left;
@@ -133,42 +167,54 @@ svg#dependencies-wait-ui-canvas {
     padding-left: 15%;
 }
 #dependencies-wait-ui .svg-tooltip-info i {
-    font-size: 1.7em;
-    padding: 2px 3px 3px 0px;
+    padding: 3px;
     vertical-align: sub;
+    font-size: 1.7em;
+    min-width: 1.3em;
+    border: 0px;
 }
-#dependencies-wait-ui .svg-tooltip-info .link-force i {
-    color: var(--color-link-force);
+/* other i color definitions are with the edges */
+
+
+#dependencies-wait-ui .svg-tooltip-info b,
+#dependencies-wait-ui .svg-tooltip-info strong {
+    font-weight: bold;
+    text-shadow: 0.05em 0.03em 0px;
 }
+
 
 #dependencies-wait-ui-canvas .toggle-visibility:not(.toggle-visible-protect) {
     filter: opacity(1);
     transition: all 0.4s;
 }
 #dependencies-wait-ui-canvas g.node.toggle-visible-protect.toggle-select rect {
-	fill: var(--color-node-select-fill);
-	stroke: var(--color-node-select-stroke);
-	/* stroke-width: 8px; */
+    fill: var(--color-node-select-fill);
+    stroke: var(--color-node-select-stroke);
+    /* stroke-width: 8px; */
     stroke-dasharray: unset;
     filter: drop-shadow(var(--color-node-select-stroke) 0px 0px 7px);
     transition: all 0.4s;
 }
 #dependencies-wait-ui-canvas g.node.toggle-visible-protect.toggle-select .label-name {
-	color: var(--color-node-select-stroke);
+    color: var(--color-node-select-stroke);
 }
 
 
 /* nodes -------------------------------------------------------------------- */
+
 #dependencies-wait-ui-canvas .node.job rect {
     stroke: var(--color-node-default-stroke);
     fill: var(--color-node-default-fill);
-    /* clip-path: polygon(20px 0%,100% 0%,100% calc(100% - 20px),calc(100% - 20px) 100%,0% 100%,0% 20px); // obviously it cannot work */
+    rx: 7px;
+    ry: 7px;
 }
 
 
 #dependencies-wait-ui-canvas .node.file rect {
     stroke: var(--color-node-default-stroke);
     fill: var(--color-node-default-fill);
+    rx: 40px;
+    ry: 40px;
 }
 
 
@@ -203,19 +249,21 @@ svg#dependencies-wait-ui-canvas {
 }
 
 
-#dependencies-wait-ui-canvas .node .label {
+#dependencies-wait-ui-canvas .node .label,
+#dependencies-wait-ui-canvas .edgeLabel .label {
     stroke: var(--color-label-default-fill);
     fill: var(--color-label-default-fill);
+    color: var(--color-label-default-text);
     text-transform: none;
     text-align: center;
- 	white-space: break-spaces;
-	padding: unset;         /* override rd */
-	border-radius: unset;   /* override rd */
+     white-space: break-spaces;
+    padding: unset;         /* override rd */
+    border-radius: unset;   /* override rd */
 
     /* allow markers to overlap the label content */
-	position: relative;
-	height: 100%;
-	width: 100%;
+    position: relative;
+    height: 100%;
+    width: 100%;
 
     /* user-select: none;      /* the svg panning causes some interferences */
     
@@ -223,17 +271,26 @@ svg#dependencies-wait-ui-canvas {
     font-size: 0.90em;
     font-weight: 500;
     line-height: 1.5em;
-	display: inline-block;
+    display: inline-block;
 }
-#dependencies-wait-ui-canvas .node .label a {
+
+
+#dependencies-wait-ui-canvas .node .label a,
+#dependencies-wait-ui-canvas .edgeLabel .label a {
         color: inherit;
         text-decoration: inherit;
 }
 
 
+#dependencies-wait-ui-canvas .node i {
+    /* prevent any interference from the icons on the tooltips */
+    pointer-events: none;
+}
+
+
 #dependencies-wait-ui-canvas .node .label-marker {
-	border: 1px solid black;
-	border-radius: 100px;
+    border: 1px solid black;
+    border-radius: 200px;
     padding-right: 0.5em;
     background-color: var(--color-label-marker-bg);
     z-index: var(--zindex-label-marker-generic);
@@ -246,7 +303,7 @@ svg#dependencies-wait-ui-canvas {
 
 
 #dependencies-wait-ui-canvas .node .marker-slot {
-	padding: 0.3em 0.4em 0.4em 0.4em;
+    padding: 0.3em 0.4em 0.4em 0.4em;
     color: indigo;
     font-size: 1.7em;
     border-color: goldenrod;
@@ -255,12 +312,12 @@ svg#dependencies-wait-ui-canvas {
 
 
 #dependencies-wait-ui-canvas .node .marker-flag {
-	color: var(--primary-states-color);
+    color: var(--primary-states-color);
 }
 
 
 #dependencies-wait-ui-canvas .node .marker-hash {
-	color: var(--success-color);
+    color: var(--success-color);
     padding-left: 0.2em;
 }
 
@@ -268,17 +325,18 @@ svg#dependencies-wait-ui-canvas {
 #dependencies-wait-ui-canvas .node .marker-jobref {
     color: var(--color-label-default-fill);
     background: var(--color-link-jobref-normal);
-	padding-left: 0.4em;
-	padding-bottom: 0.5em;
-	z-index: var(--zindex-label-marker-warning);
+    padding-left: 0.4em;
+    padding-bottom: 0.5em;
+    z-index: var(--zindex-label-marker-warning);
 }
 #dependencies-wait-ui-canvas .node .marker-jobref i {
-	filter: opacity(1) !important;
+    filter: opacity(1) !important;
+    border-style: none;
 }
   
 
 #dependencies-wait-ui-canvas .node .marker-notification {
-	color: var(--info-states-color);    /* rd theme */
+    color: var(--info-states-color);    /* rd theme */
     font-weight: bold;
 }
 
@@ -286,15 +344,15 @@ svg#dependencies-wait-ui-canvas {
 #dependencies-wait-ui-canvas .node .label-marker-warning {
     font-size: 4em;
     margin-right: 5px;
-	width: 1em;
-	height: 1.01em;
-	border-radius: 200px;
+    width: 1.1em;
+    height: 1.05em;
+    border-radius: 200px;
     background: var(--color-label-marker-bg);
-	z-index: var(--zindex-label-marker-warning);
+    z-index: var(--zindex-label-marker-warning);
 }
 #dependencies-wait-ui-canvas .node .label-marker-warning i {
     color: var(--color-label-marker-warning);
-	filter: opacity(1) !important;
+    filter: opacity(1) !important;
 }
 #dependencies-wait-ui-canvas .node .label-marker-warning.marker-disabled i {
     color: var(--color-node-muted-text);
@@ -307,7 +365,7 @@ svg#dependencies-wait-ui-canvas {
     margin-bottom: 1em;
     background-color: var(--color-label-job-header-bg);
     color: var(--color-label-job-header-text);
-	font-style: italic;
+    font-style: italic;
     white-space: nowrap;
     cursor: pointer;
 }
@@ -320,38 +378,39 @@ svg#dependencies-wait-ui-canvas {
 
 #dependencies-wait-ui-canvas .node.job .label-project-external {
     color: orange;
-    font-size: 1.5em;
+    font-size: 1.2em;
     font-weight: bold;
     text-transform: uppercase;
     white-space: nowrap;
 }
 
 #dependencies-wait-ui-canvas .node.file .label {
-	text-align: center;
+    text-align: center;
     white-space: nowrap;
 }
 
 #dependencies-wait-ui-canvas .node.file .label-file-host {
     border-radius: 80px/40px 40px 0 0;
-	margin: 0 7px 0.3em 7px;
+    margin: 0 7px 0.3em 7px;
     padding: 0 0 0.2em 10px;
     background-color: var(--color-label-file-header-bg);
     color: white;
-	font-style: italic;
+    font-style: italic;
 }
 
 #dependencies-wait-ui-canvas .node.file .label-file-name {
     font-size: 1em;
     font-weight: bold;
     text-overflow: ellipsis;
-	overflow: hidden;
+    overflow: hidden;
+    margin-top: 5px;        /* extra distance from the flag and hash markers */
 }
 
 #dependencies-wait-ui-canvas .node.file .label-file-dir {
     font-weight: bold;
-	margin: 0 5% 0 5%;
+    margin: 0 5% 0 5%;
     text-overflow: ellipsis;
-	overflow: hidden;
+    overflow: hidden;
 }
 
 #dependencies-wait-ui-canvas .node.file .label-file-dir i,
@@ -366,9 +425,17 @@ svg#dependencies-wait-ui-canvas {
 
 #dependencies-wait-ui-canvas .edgePaths .joblink path,
 #dependencies-wait-ui-canvas .edgePaths .filelink path,
+#dependencies-wait-ui-canvas .edgePaths .statelink path,
 #dependencies-wait-ui-canvas .edgePaths .reflink path {
     stroke-width: var(--link-generic-normal-stroke-width);
 }
+#dependencies-wait-ui-canvas .edgePaths .joblink marker,
+#dependencies-wait-ui-canvas .edgePaths .filelink marker,
+#dependencies-wait-ui-canvas .edgePaths .statelink marker,
+#dependencies-wait-ui-canvas .edgePaths .reflink marker {
+    stroke-width: 4px !important;
+}
+
 
 /*
 #dependencies-wait-ui-canvas .edgePaths .joblink:hover path,
@@ -383,38 +450,76 @@ svg#dependencies-wait-ui-canvas {
     stroke-dasharray: 10, 5;
 }
 
-#dependencies-wait-ui-canvas .edgePaths .link-force path {
-    stroke-width: var(--link-generic-force-stroke-width);
+
+#dependencies-wait-ui-canvas .edgeLabels { 
+    pointer-events: none;
 }
 
-#dependencies-wait-ui-canvas .edgePaths .joblink:not(.link-force) path { stroke: var(--color-link-success-normal); }
-#dependencies-wait-ui-canvas .edgePaths .joblink:not(.link-force) marker { fill: var(--color-link-success-normal); }
+#dependencies-wait-ui-canvas .edgeLabels g.label .label {
+    display: inline-flex;
+    justify-content: center;
+}
+#dependencies-wait-ui-canvas .edgeLabels g.label .label i { 
+    font-size: 30px;    /* also set in the helper-dagred3 code for the svg label size */
+    min-width: 40px;    /* 30px when not using fa-border */
+    border-radius: 50px;
+    padding: 3px;
+    background-color: var(--color-linklabel-bg);
+    border-color: grey;
+    pointer-events: all;
+}
 
-#dependencies-wait-ui-canvas .edgePaths .joblink.link-force path { stroke: var(--color-link-success-force); }
-#dependencies-wait-ui-canvas .edgePaths .joblink.link-force marker { fill: var(--color-link-success-force); }
+/* handle glyphicon differences with fontawesome */
+#dependencies-wait-ui-canvas .edgeLabels i.glyphicon {
+	border-style: solid;
+	font-size: 27px !important;
+}
+
+/* different colors for joblinks with or without the forced state */
+#dependencies-wait-ui-canvas .edgePaths  .joblink:not(.link-force) path { stroke: var(--color-link-success-normal); }
+#dependencies-wait-ui-canvas .edgePaths  .joblink:not(.link-force) marker { fill: var(--color-link-success-normal); }
+#dependencies-wait-ui-canvas .edgePaths  .joblink.link-force path { stroke: var(--color-link-success-force); stroke-width: var(--link-generic-force-stroke-width); }
+#dependencies-wait-ui-canvas .edgePaths  .joblink.link-force marker { fill: var(--color-link-success-force); }
+
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-success i, #dependencies-wait-ui .svg-tooltip-info i.link-success { color: var(--color-link-success-normal); }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-force i, #dependencies-wait-ui .svg-tooltip-info i.link-force { color: var(--color-link-success-force); }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-handler i, #dependencies-wait-ui .svg-tooltip-info i.link-handler { color: var(--color-link-errorhandler-normal); }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-wait i { color: var(--color-link-generic); }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-fail i, #dependencies-wait-ui .svg-tooltip-info i.link-halt { color: var(--color-link-error-force); }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-halt i, #dependencies-wait-ui .svg-tooltip-info i.link-halt { color: var(--color-link-halt-normal); }
+
+
 
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-error:not(.link-force) path { stroke: var(--color-link-error-normal) !important; }
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-error:not(.link-force) marker { fill: var(--color-link-error-normal) !important; }
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-error.link-force path { stroke: var(--color-link-error-force) !important; }
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-error.link-force marker { fill: var(--color-link-error-force) !important; }
+#dependencies-wait-ui-canvas .edgeLabels .joblink.link-error i, #dependencies-wait-ui .svg-tooltip-info i.link-error { color: var(--color-link-error-normal); }
+
 
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-normal path { stroke: var(--color-link-generic); }
 #dependencies-wait-ui-canvas .edgePaths .joblink.link-normal marker { fill: var(--color-link-generic); }
 
 
-#dependencies-wait-ui-canvas .edgePaths .reflink path { stroke: var(--color-link-jobref-normal); }
-#dependencies-wait-ui-canvas .edgePaths .reflink marker { fill: var(--color-link-jobref-normal); }
-
-#dependencies-wait-ui-canvas .edgePaths .reflink.link-error path { stroke: var(--color-link-jobref-error) !important; }
-#dependencies-wait-ui-canvas .edgePaths .reflink.link-error marker { fill: var(--color-link-jobref-error) !important; }
-
-
 #dependencies-wait-ui-canvas .edgePaths .filelink path { stroke: var(--color-link-file-normal); }
 #dependencies-wait-ui-canvas .edgePaths .filelink marker { fill: var(--color-link-file-normal); }
-
 #dependencies-wait-ui-canvas .edgePaths .filelink.link-force path { stroke: var(--color-link-file-force) !important; }
 #dependencies-wait-ui-canvas .edgePaths .filelink.link-force marker { fill: var(--color-link-file-force) !important; }
+#dependencies-wait-ui-canvas .edgeLabels .filelink i, #dependencies-wait-ui .svg-tooltip-info i.filelink { color: var(--color-link-file-normal); }
 
+
+#dependencies-wait-ui-canvas .edgePaths .reflink path { stroke: var(--color-link-jobref-normal); }
+#dependencies-wait-ui-canvas .edgePaths .reflink marker { fill: var(--color-link-jobref-normal); }
+#dependencies-wait-ui-canvas .edgePaths .reflink.link-error path { stroke: var(--color-link-jobref-error) !important; }
+#dependencies-wait-ui-canvas .edgePaths .reflink.link-error marker { fill: var(--color-link-jobref-error) !important; }
+#dependencies-wait-ui-canvas .edgeLabels .reflink i, #dependencies-wait-ui .svg-tooltip-info i.reflink { color: var(--color-link-jobref-normal); }
+
+
+#dependencies-wait-ui-canvas .edgePaths .statelink path { stroke: var(--color-link-statecond-normal); }
+#dependencies-wait-ui-canvas .edgePaths .statelink marker { fill: var(--color-link-statecond-normal); }
+#dependencies-wait-ui-canvas .edgePaths .statelink.link-error path { stroke: var(--color-link-statecond-error) !important; }
+#dependencies-wait-ui-canvas .edgePaths .statelink.link-error marker { fill: var(--color-link-statecond-error) !important; }
+#dependencies-wait-ui-canvas .edgeLabels .statelink i, #dependencies-wait-ui .svg-tooltip-info i.statelink { color: var(--color-link-statecond-normal); }
 
 /* clusters ----------------------------------------------------------------- */
 /* WARNING Dagre : cannot set the class for a cluster node => some settings are in the code */
@@ -427,16 +532,18 @@ svg#dependencies-wait-ui-canvas {
     font-size: 1em;
 }
 
+/* for debugging the schedule nodes + links - uncomment when required */
 #dependencies-wait-ui-canvas .cluster .cluster-schedule {
-    /* stroke: var(--colors-gray-100); 
-    fill: var(--colors-gray-100);",
+/* **
+    stroke: var(--colors-gray-100);
+    fill: var(--colors-gray-100);,
     text-decoration: underline;
 }
 #dependencies-wait-ui-canvas .cluster .cluster-group-jobs {
     fill: var(--colors-gray-200);
-*/
+** */
 }
- 
+
 
 /* the hidden links to the hidden boxes */
 #dependencies-wait-ui-canvas .node.schedule-link,

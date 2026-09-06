@@ -1,14 +1,34 @@
 Change history
 ======
 
+v3.1.0
+------
+- Module UI workflow:
+  - job links : new visual markers visible over the links (edges) to reflect additional properties : forced, halt, fail, error handler, ...
+  - job links : support for the module Job state conditionnal
+  - tooltips : all tooltips messages and informations will appear at the bottom of the diagram panel.
+  - tooltips : some definition has been reworked.
+  - tooltips : informational notice for unmanaged schedule structure.
+  - minimap : new feature, not yet interactive.
+  - file node : the filename label is not shortened anymore when the flag and/or hash marker are active.
+  - fix (again) the spinner was still rotating while hidden.
+  - removed the unused Rundeck job definitions for the tests.
+- Module wait-for slot : increased the max slot value from 5 to 7
+- All wait-for modules : the ending time will also print the execution duration for the step.
+
+Missing in 3.0.0 notes :  
+- Readme : additional information for all modules.
+- Gradle : configuration splitted to reduce the maintenance.
+
+
 v3.0.0
 ------
-- Module UI workflow: new module for a UI panel able to present an interactive workflow diagram of all the jobs in a selected project.
+- Module UI workflow: new UI module able to present an interactive workflow diagram of all the jobs in a selected project.
 - Module wait-for job : new "Halt" configuration option for stopping the current job in success when the target job is ended in the opposite state than expected.
 - All modules : the "maxWait" parameter has been integrated also as an option in the configuration panel under the "Dependency tuning" section.
 - All modules : updated some informational messages to be more explicit.
 - All modules : simplified some internal functions.
-- Readme: updated for the new plugin.
+- Readme : updated for the new module.
 - Gradle : configuration to support external libs as resources.
 - tests : some order change and ajustements to cover more case for the UI workflow module.
 - tests : new tests for the UI workflow module.

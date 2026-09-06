@@ -34,10 +34,11 @@ jQuery(function () {
             canvas_msg_nojob: self.htmlCanvasMsgNoJobId,
             canvas_holder: self.htmlCanvasHolder,
             canvas_tooltip: self.htmlCanvasTooltipId,
-            canvas_schedule_group_precision_minute: false,          // create clusters for schedules with HH:MM/15m (true) or HH (false) precision
+            canvas_schedule_group_precision_minute:  0,             // create clusters for schedules with 30, 15 or 10 min precision (HH:MM/??m ) or per hour (HH:00)
             canvas_schedule_group_create_all: false,                // create clusters for all hourly schedules even if empty
             canvas_job_label_show_href_link: true,                  // allow href links in job labels
-            canvas_node_unknown_attach_in_time_cluster: true,      // attach the unknown nodes (file, shadow, ...) to the current time cluster instead of being outside
+            canvas_node_unknown_attach_in_time_cluster: true,       // attach the unknown nodes (file, shadow, ...) to the current time cluster instead of being outside
+            canvas_edge_labels: true,                               // generate labels for edge links
         };
     };
 
@@ -90,7 +91,7 @@ jQuery(function () {
                     <div id="${self.htmlCanvasMsgNoJobId}"  style="display: none;"><h3 style="color: #008080;"><center>There are currently no job in this project</center></h3></div>
                     <div id="${self.htmlCanvasSpinnerId}" class="loading" style="display: none;">
                         <div class="loading-spinner">
-                            <i class="fas fa-spinner fa-spin fa-5x"></i>
+                            <i class="fas fa-spinner"></i>
                         </div>
                     </div>
                     <div id="${self.htmlCanvasProgressBarId}" class="progress" style="display: none;">
@@ -129,6 +130,7 @@ jQuery(function () {
         // add the JS managing the graph
         for (let sLib of [
                 "js/dependencies-wait-workflow-helper-graph-dagred3.js",
+                "js/dependencies-wait-workflow-helper-graph-minimap.js",
                 "js/dependencies-wait-workflow-helper-jobs.js",
                 "js/dependencies-wait-workflow-graph.js",
                 "js/dependencies-wait-workflow-core.js",

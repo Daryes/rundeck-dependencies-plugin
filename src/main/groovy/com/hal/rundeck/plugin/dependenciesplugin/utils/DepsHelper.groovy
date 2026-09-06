@@ -426,9 +426,10 @@ class DepsHelper {
             // use a dedicated variable due to the error message requiering the unmodified value
             String sFinalDuration = sDuration.trim().toUpperCase()
 
-            // a simple number => seconds
+            // A duration is expected to start with a "P", and "T" in front of the time part
+            // simple number => seconds
             if (DepsHelper.isNumeric(sFinalDuration)) { sFinalDuration = "PT" + sDuration + "S" }
-            // a duration is expected to start with a "P", and "T" in front of the time part
+            // add the prefix if missing
             if (!sFinalDuration.startsWith("PT")) { sFinalDuration = "PT" + sFinalDuration }
 
             Duration oTimeDur = Duration.parse(sFinalDuration)

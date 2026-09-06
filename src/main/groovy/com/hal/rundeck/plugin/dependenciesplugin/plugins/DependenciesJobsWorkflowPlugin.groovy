@@ -478,7 +478,7 @@ class DependenciesJobsWorkflowPlugin extends DependenciesWorkflowTemplate {
     * @param dDateTimeAfter : (optional) starting date to search for executions
     * @return : list of the target job executions, when found
     */
-    private java.util.List<ExecutionReference> rdJob_GetJobSearchExecutions(JobService oJobSvc, String sTargetProject, String sTargetJobId, String sTargetJobState, ZonedDateTime dDateTimeAfter = null) {
+    private java.util.List<ExecutionReference> rdJob_GetJobSearchExecutions(JobService oJobSvc, String sTargetProject, String sTargetJobId, String sTargetJobState, ZonedDateTime dDateTimeAfter = null) {    // codenarc-disable-line LineLength
         Long nTimeStart = 0
         String sTimeStart = ""
 
